@@ -59,7 +59,7 @@ def generate_request_id():
     return req_id
 
 
-def request_id_middleware(request_id_factory=None):
+def request_id_middleware(request_id_factory=None, log_function_name=True):
     request_id_factory = request_id_factory or generate_request_id
 
     @web.middleware
@@ -76,16 +76,26 @@ def request_id_middleware(request_id_factory=None):
                 if sentry_sdk:
                     scope = stack.enter_context(sentry_sdk.push_scope())
                     scope.set_tag('request_id', req_id)
-                return await _call_handler(request, handler)
+                return await _call_handler(request, handler, log_function_name)
         finally:
             request_id.reset(token)
 
     return _request_id_middleware
 
 
-async def _call_handler(request, handler):
+def get_function_name(f):
     try:
-        logger.info('Processing %s %s (%s)', request.method, request.path, handler)
+        return f'{f.__module__}:{f.__name__}'
+    except Exception as e:
+        return str(f)
+
+
+async def _call_handler(request, handler, log_function_name):
+    try:
+        if log_function_name:
+            logger.info('Processing %s %s (%s)', request.method, request.path, get_function_name(handler))
+        else:
+            logger.info('Processing %s %s', request.method, request.path)
         return await handler(request)
     except CancelledError as e:
         logger.info('(Cancelled)')
