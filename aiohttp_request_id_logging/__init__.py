@@ -88,7 +88,7 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
 def get_function_name(f):
     try:
         return f'{f.__module__}:{f.__name__}'
-    except Exception as e:
+    except Exception:
         return str(f)
 
 
