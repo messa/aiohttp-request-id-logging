@@ -23,6 +23,8 @@ def setup_logging_request_id_prefix():
     '''
     Wrap logging request factory so that every log record gets an attribute
     record.requestIdPrefix.
+
+    You can then use it in log format as "%(requestIdPrefix)s".
     '''
     # make sure we are doing this only once
     if getattr(logging, 'request_id_log_record_factory_set_up', False):
@@ -91,6 +93,9 @@ def get_function_name(f):
 
 
 async def _call_handler(request, handler, log_function_name):
+    '''
+    Used in request_id_middleware to wrap handler call with some logging.
+    '''
     try:
         if log_function_name:
             logger.info('Processing %s %s (%s)', request.method, request.path, get_function_name(handler))
