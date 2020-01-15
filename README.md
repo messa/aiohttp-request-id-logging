@@ -31,13 +31,13 @@ This library helps you to solve this in a few steps:
 This is how the result looks like:
 
 ```
-2020-01-15 15:58:47,238 [MainThread] aiohttp_request_id_logging  INFO: [O5bvIlU] Processing GET / (__main__:hello)
-2020-01-15 15:58:47,950 [MainThread] aiohttp_request_id_logging  INFO: [xtMacpA] Processing GET / (__main__:hello)
-2020-01-15 15:58:48,240 [MainThread] __main__                    INFO: [O5bvIlU] Processing money transfer id 1234
-2020-01-15 15:58:48,953 [MainThread] __main__                    INFO: [xtMacpA] Processing money transfer id 5678
-2020-01-15 15:58:49,182 [MainThread] __main__                    INFO: [xtMacpA] Oh no, something bad has hapenned! Cannot finish the transfer.
-2020-01-15 15:58:49,242 [MainThread] aiohttp.access              INFO: [O5bvIlU] 127.0.0.1 "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
-2020-01-15 15:58:49,959 [MainThread] aiohttp.access              INFO: [xtMacpA] 127.0.0.1 "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
+2020-01-15 15:58:47,238  INFO: [O5bvIlU] Processing GET / (__main__:hello)
+2020-01-15 15:58:47,950  INFO: [xtMacpA] Processing GET / (__main__:hello)
+2020-01-15 15:58:48,240  INFO: [O5bvIlU] Processing money transfer id 1234
+2020-01-15 15:58:48,953  INFO: [xtMacpA] Processing money transfer id 5678
+2020-01-15 15:58:49,182 ERROR: [xtMacpA] Oh no, something bad has hapenned! Cannot finish the transfer.
+2020-01-15 15:58:49,242  INFO: [O5bvIlU] 127.0.0.1 "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
+2020-01-15 15:58:49,959  INFO: [xtMacpA] 127.0.0.1 "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
 ```
 
 See example below or in [demo.py](./demo.py).
