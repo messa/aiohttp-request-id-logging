@@ -15,16 +15,16 @@ So, which transfer has failed? The one with id 1234, or the one with id 5678?
 
 This library helps you to solve this in a few steps:
 
-1. Generate random `request_id` for each aiohttp request (`request_id_middleware()`) and
+1. **`request_id_middleware()`:** Generate random `request_id` for each aiohttp request and
 
    - store it in a ContextVar `aiohttp_request_id_logging.request_id`
    - store it also in `request['request_id']`
 
-2. Modify logging record factory so that the request_id is attached to every logging record created (`setup_logging_request_id_prefix()`)
+2. **`setup_logging_request_id_prefix()`:** Modify logging record factory so that the request_id is attached to every logging record created
 
    - so you should modify your log format, for example `logging.basicConfig(format=... %(levelname)5s: %(requestIdPrefix)s%(message)s')`
 
-3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So `RequestIdContextAccessLogger` is provided that adds the request_id to the access log message.
+3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So **`RequestIdContextAccessLogger`** is provided that adds the request_id to the access log message.
 
 4. If you use Sentry, a `request_id` tag is added when the request is processed.
 
