@@ -26,7 +26,7 @@ This library helps you to solve this in a few steps:
 
 3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So **`RequestIdContextAccessLogger`** is provided that adds the request_id to the access log message.
 
-4. If you use Sentry, a `request_id` tag is added when the request is processed.
+4. If you use **[Sentry](https://docs.sentry.io/platforms/python/aiohttp/)**, a `request_id` [tag](https://docs.sentry.io/enriching-error-data/context/?platform=python#tagging-events) is added when the request is processed.
 
 This is how the result looks like:
 
@@ -41,6 +41,8 @@ This is how the result looks like:
 ```
 
 See example below or in [demo.py](./demo.py).
+
+Sentry integration will be active only if you have `sentry_sdk` installed.
 
 Motivation: https://stackoverflow.com/a/58801740/196206
 
