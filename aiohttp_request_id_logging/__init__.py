@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 def setup_logging_request_id_prefix():
     '''
-    Wrap logging request factory so that every log record gets ab attribute
+    Wrap logging request factory so that every log record gets an attribute
     record.requestIdPrefix.
     '''
     # make sure we are doing this only once
