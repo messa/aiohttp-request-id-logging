@@ -51,13 +51,13 @@ Installation
 ------------
 
 ```shell
-$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.3.zip
+$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.4.zip
 ```
 
 Or add this line to `requirements.txt`:
 
 ```
-aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.3.zip
+aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.4.zip
 ```
 
 
