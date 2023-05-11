@@ -46,6 +46,7 @@ Sentry integration will be active only if you have `sentry_sdk` installed.
 
 Motivation: https://stackoverflow.com/a/58801740/196206
 
+
 Installation
 ------------
 
