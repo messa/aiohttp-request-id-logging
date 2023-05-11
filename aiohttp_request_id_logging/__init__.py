@@ -16,6 +16,8 @@ except ImportError:
 # contextvar that contains given request tracing id
 request_id = ContextVar('request_id')
 
+request_id_default_length = 5
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,8 @@ def setup_logging_request_id_prefix():
     def new_factory(*args, **kwargs):
         record = old_factory(*args, **kwargs)
         req_id = request_id.get(None)
-        record.requestIdPrefix = f'[{req_id}] ' if req_id else ''
+        record.request_id = req_id
+        record.requestIdPrefix = f'[req:{req_id}] ' if req_id else ''
         return record
 
     logging.setLogRecordFactory(new_factory)
@@ -56,7 +59,7 @@ def generate_request_id():
     '''
     Used in request_id_middleware to generate the request id
     '''
-    req_id = token_urlsafe(5)
+    req_id = token_urlsafe(request_id_default_length)
     req_id = req_id.replace('_', 'x').replace('-', 'X')
     return req_id
 
