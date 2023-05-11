@@ -16,7 +16,7 @@ except ImportError:
 # contextvar that contains given request tracing id
 request_id = ContextVar('request_id')
 
-request_id_default_length = 5
+request_id_default_length = 7
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ def generate_request_id():
     '''
     Used in request_id_middleware to generate the request id
     '''
-    req_id = token_urlsafe(request_id_default_length)
+    req_id = token_urlsafe(request_id_default_length)[:request_id_default_length]
     req_id = req_id.replace('_', 'x').replace('-', 'X')
     return req_id
 
