@@ -1,6 +1,6 @@
 [project]
 name = "aiohttp-request-id-logging"
-version = "0.0.2"
+version = "0.0.3"
 description= " Setup proper request id logging for your Aiohttp app"
 readme = "README.md"
 requires-python = ">=3.7"
