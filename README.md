@@ -6,7 +6,7 @@ When you log from your web application, usually log messages from different requ
 ```
 2020-01-15 15:35:37,501  INFO: Processing money transfer id 1234
 2020-01-15 15:35:37,976  INFO: Processing money transfer id 5678
-2020-01-15 15:35:38,201 ERROR: Oh no, something bad has hapenned! Cannot finish the transfer.
+2020-01-15 15:35:38,201 ERROR: Oh no, something bad has happened! Cannot finish the transfer.
 2020-01-15 15:35:38,504  INFO: 127.0.0.1 [15/Jan/2020:14:35:36 +0000] "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
 2020-01-15 15:35:38,982  INFO: 127.0.0.1 [15/Jan/2020:14:35:36 +0000] "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
 ```
@@ -20,7 +20,7 @@ When you start to use this library, this is how your log messages will look like
 2020-01-15 15:58:47,950  INFO: [req:xtMacpA] Processing GET / (__main__:hello)
 2020-01-15 15:58:48,240  INFO: [req:O5bvIlU] Processing money transfer id 1234
 2020-01-15 15:58:48,953  INFO: [req:xtMacpA] Processing money transfer id 5678
-2020-01-15 15:58:49,182 ERROR: [req:xtMacpA] Oh no, something bad has hapenned! Cannot finish the transfer.
+2020-01-15 15:58:49,182 ERROR: [req:xtMacpA] Oh no, something bad has happened! Cannot finish the transfer.
 2020-01-15 15:58:49,242  INFO: [req:O5bvIlU] 127.0.0.1 "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
 2020-01-15 15:58:49,959  INFO: [req:xtMacpA] 127.0.0.1 "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
 ```
