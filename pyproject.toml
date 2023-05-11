@@ -1,0 +1,35 @@
+[project]
+name = "aiohttp-request-id-logging"
+version = "0.0.1"
+description= " Setup proper request id logging for your Aiohttp app"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {file = "LICENSE"}
+keywords = ["aiohttp", "logging"]
+maintainers = [
+  {name = "Petr Messner", email = "petr.messner@gmail.com" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3 :: Only",
+]
+dependencies = [
+  "aiohttp",
+]
+
+[project.optional-dependencies]
+test = ["pytest", "flake8"]
+
+[project.urls]
+"Homepage" = "https://github.com/messa/aiohttp-request-id-logging"
+"Bug Reports" = "https://github.com/messa/aiohttp-request-id-logging/issues"
+"Source" = "https://github.com/messa/aiohttp-request-id-logging"
+
+[build-system]
+requires = ["setuptools>=43.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
