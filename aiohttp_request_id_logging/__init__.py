@@ -48,7 +48,16 @@ def setup_logging_request_id_prefix():
 class RequestIdContextAccessLogger (_AccessLogger):
 
     def log(self, request, response, time):
-        token = request_id.set(request['request_id'])
+        try:
+            request_id_value = request['request_id']
+        except KeyError:
+            # If there is no request['request_id'], for example when an error
+            # occurs in a middleware, fall back to just logging without setting
+            # the request_id context variable.
+            super().log(request, response, time)
+            return
+
+        token = request_id.set(request_id_value)
         try:
             super().log(request, response, time)
         finally:
