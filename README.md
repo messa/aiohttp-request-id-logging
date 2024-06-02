@@ -26,8 +26,8 @@ When you start to use this library in your aiohttp web application, this is how 
 ```
 2020-01-15 15:58:47,238  INFO: [req:O5bvIlU] Processing GET / (__main__:hello)
 2020-01-15 15:58:47,950  INFO: [req:xtMacpA] Processing GET / (__main__:hello)
-2020-01-15 15:58:48,240  INFO: [req:O5bvIlU] Processing money transfer id 1234
-2020-01-15 15:58:48,953  INFO: [req:xtMacpA] Processing money transfer id 5678
+2020-01-15 15:58:48,240  INFO: [req:O5bvIlU] Processing transfer id 1234
+2020-01-15 15:58:48,953  INFO: [req:xtMacpA] Processing transfer id 5678
 2020-01-15 15:58:49,182 ERROR: [req:xtMacpA] Oh no, something bad has happened! Cannot finish the transfer.
 2020-01-15 15:58:49,242  INFO: [req:O5bvIlU] 127.0.0.1 "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
 2020-01-15 15:58:49,959  INFO: [req:xtMacpA] 127.0.0.1 "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
