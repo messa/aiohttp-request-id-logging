@@ -3,3 +3,5 @@
 extend-exclude = venv,dist,build
 
 max-line-length = 120
+
+per-file-ignores = demo.py:F401

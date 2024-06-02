@@ -1,7 +1,7 @@
-from aiohttp import web
+from aiohttp.web import Response, RouteTableDef, Application, run_app, AppRunner, TCPSite
 from aiohttp.web_log import AccessLogger
-import asyncio
-import logging
+from asyncio import sleep, run
+from logging import DEBUG, basicConfig, getLogger
 import os
 
 try:
@@ -16,9 +16,12 @@ from aiohttp_request_id_logging import (
     RequestIdContextAccessLogger)
 
 
-logger = logging.getLogger(__name__)
+logger = getLogger(__name__)
+
+routes = RouteTableDef()
 
 
+@routes.get('/')
 async def hello(request):
     '''
     Sample hello world handler.
@@ -26,58 +29,81 @@ async def hello(request):
     It sleeps and logs so that you can test the behavior of running
     multiple parallel handlers.
     '''
-    await asyncio.sleep(1)
+    await sleep(1)
     logger.info('Doing something')
-    await asyncio.sleep(1)
-    return web.Response(text="Hello, world!\n")
+    await sleep(1)
+    return Response(text="Hello, world!\n")
 
 
+@routes.get('/f')
 async def fail(request):
     '''
     Sample exception raising handler.
     '''
-    await asyncio.sleep(1)
+    await sleep(1)
     raise Exception('test exception')
-    await asyncio.sleep(1)
-    return web.Response(text="Hello, world!\n")
+    await sleep(1)
+    return Response(text="Hello, world!\n")
 
 
+@routes.get('/e')
 async def log_error(request):
     '''
     Sample error logging handler.
     '''
-    await asyncio.sleep(1)
+    await sleep(1)
     logger.error('test error log')
-    await asyncio.sleep(1)
-    return web.Response(text="Hello, world!\n")
+    await sleep(1)
+    return Response(text="Hello, world!\n")
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
+def main():
+    basicConfig(
+        level=DEBUG,
+        format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
 
-setup_logging_request_id_prefix()
+    setup_logging_request_id_prefix()
 
+    sentry_dsn = os.environ.get('SENTRY_DSN')
+    if sentry_dsn and sentry_sdk:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            integrations=[
+                AioHttpIntegration(),
+            ])
 
-sentry_dsn = os.environ.get('SENTRY_DSN')
-if sentry_dsn and sentry_sdk:
-    sentry_sdk.init(
-        dsn=sentry_dsn,
-        integrations=[
-            AioHttpIntegration(),
+    app = Application(
+        middlewares=[
+            request_id_middleware(),
         ])
+    app.router.add_routes(routes)
+
+    '''
+    The simpler way how to run Aiohttp app:
+
+    run_app(
+        app,
+        access_log_class=RequestIdContextAccessLogger,
+        access_log_format=AccessLogger.LOG_FORMAT.replace(' %t ', ' ') + ' %Tf')
+    '''
+
+    run(run_my_app(app))
 
 
-app = web.Application(
-    middlewares=[
-        request_id_middleware(),
-    ])
-app.add_routes([web.get('/', hello)])
-app.add_routes([web.get('/f', fail)])
-app.add_routes([web.get('/e', log_error)])
+async def run_my_app(app):
+    runner = AppRunner(
+        app,
+        access_log_class=RequestIdContextAccessLogger,
+        access_log_format=AccessLogger.LOG_FORMAT.replace(' %t ', ' ') + ' %Tf')
+    try:
+        await runner.setup()
+        site = TCPSite(runner, 'localhost', 8080)
+        await site.start()
+        while True:
+            await sleep(3600)  # sleep forever
+    finally:
+        await runner.cleanup()
 
 
-web.run_app(
-    app,
-    access_log_class=RequestIdContextAccessLogger,
-    access_log_format=AccessLogger.LOG_FORMAT.replace(' %t ', ' ') + ' %Tf')
+if __name__ == '__main__':
+    main()
