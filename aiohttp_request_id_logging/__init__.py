@@ -1,4 +1,5 @@
 from asyncio import CancelledError
+from os import getpid
 from aiohttp import web
 from aiohttp.web_exceptions import HTTPException
 from aiohttp.web_log import AccessLogger as _AccessLogger
@@ -64,7 +65,7 @@ class RequestIdContextAccessLogger (_AccessLogger):
             request_id.reset(token)
 
 
-def generate_request_id():
+def random_request_id_factory():
     '''
     Used in request_id_middleware to generate the request id
     '''
@@ -73,8 +74,55 @@ def generate_request_id():
     return req_id
 
 
+# old name for backward compatibility
+generate_request_id = random_request_id_factory
+
+
+class SequentialRequestIdFactory:
+    '''
+    Can be used in request_id_middleware to generate the request id
+    '''
+
+    prefix_length = 4
+
+    def __init__(self):
+        self._pid = None
+        self._prefix = None
+        self._next_value = None
+
+    def __call__(self):
+        pid = getpid()
+        if pid != self._pid:
+            self._prefix = self._generate_prefix()
+            self._next_value = 0
+            self._pid = pid
+        value = self._next_value
+        self._next_value += 1
+        return f'{self._prefix}{value:04}'
+
+    @classmethod
+    def _generate_prefix(cls):
+        while True:
+            prefix = token_urlsafe(cls.prefix_length)[:cls.prefix_length]
+            if '_' in prefix or '-' in prefix:
+                continue
+            # Let's not have any numbers in the prefix so we keep more focus on the appended request number.
+            # This is just aesthetic thing.
+            if any(c.isdigit() for c in prefix):
+                continue
+            if 'l' in prefix or 'I' in prefix:
+                continue
+            return prefix
+
+
+sequential_request_id_factory = SequentialRequestIdFactory()
+
+
+default_request_id_factory = random_request_id_factory
+
+
 def request_id_middleware(request_id_factory=None, log_function_name=True):
-    request_id_factory = request_id_factory or generate_request_id
+    request_id_factory = request_id_factory or default_request_id_factory
 
     @web.middleware
     async def _request_id_middleware(request, handler):

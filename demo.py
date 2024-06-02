@@ -13,6 +13,7 @@ except ImportError:
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
     request_id_middleware,
+    sequential_request_id_factory,
     RequestIdContextAccessLogger)
 
 
@@ -75,6 +76,8 @@ def main():
     app = Application(
         middlewares=[
             request_id_middleware(),
+            # Alternatively:
+            # request_id_middleware(request_id_factory=sequential_request_id_factory),
         ])
     app.router.add_routes(routes)
 
