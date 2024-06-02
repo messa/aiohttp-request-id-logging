@@ -52,15 +52,18 @@ Usage
 -----
 
 ```python
-from aiohttp import web
+from aiohttp.web import Application, Response, RouteTableDef, run_app
 from aiohttp.web_log import AccessLogger
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
     request_id_middleware,
     RequestIdContextAccessLogger)
 
+routes = RouteTableDef()
+
+@routes.get('/')
 async def hello(request):
-    return web.Response(text="Hello, world!\n")
+    return Response(text="Hello, world!\n")
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -68,10 +71,10 @@ logging.basicConfig(
 
 setup_logging_request_id_prefix()
 
-app = web.Application(middlewares=[request_id_middleware()])
-app.add_routes([web.get('/', hello)])
+app = Application(middlewares=[request_id_middleware()])
+app.router.add_routes(routes)
 
-web.run_app(app, access_log_class=RequestIdContextAccessLogger)
+run_app(app, access_log_class=RequestIdContextAccessLogger)
 ```
 
 For more complete example see [demo.py](demo.py).
