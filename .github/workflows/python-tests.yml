@@ -27,6 +27,12 @@ jobs:
         - python-version: '3.12'
           aiohttp-version: '3.7.4'
           # Same reason as above
+        - python-version: '3.13'
+          aiohttp-version: '3.7.4'
+          # ModuleNotFoundError: No module named 'cgi' in aiohttp/helpers.py
+        - python-version: '3.13'
+          aiohttp-version: '3.8.6'
+          # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
 
     steps:
     - uses: actions/checkout@v4
