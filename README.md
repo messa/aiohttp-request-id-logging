@@ -12,8 +12,8 @@ For example:
 2020-01-15 15:35:37,501  INFO: Processing transfer id 1234
 2020-01-15 15:35:37,976  INFO: Processing transfer id 5678
 2020-01-15 15:35:38,201 ERROR: Oh no, something bad has happened! Cannot finish the transfer.
-2020-01-15 15:35:38,504  INFO: 127.0.0.1 [15/Jan/2020:14:35:36 +0000] "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
-2020-01-15 15:35:38,982  INFO: 127.0.0.1 [15/Jan/2020:14:35:36 +0000] "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
+2020-01-15 15:35:38,504  INFO: 127.0.0.1 [15/Jan/2020:14:35:36 +0000] "POST / HTTP/1.1" 200 165 "-" "curl/7.68.0"
+2020-01-15 15:35:38,982  INFO: 127.0.0.1 [15/Jan/2020:14:35:36 +0000] "POST / HTTP/1.1" 500 165 "-" "curl/7.68.0"
 ```
 
 So, which transfer has failed? The one with id 1234, or the one with id 5678?
