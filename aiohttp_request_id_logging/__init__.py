@@ -6,6 +6,7 @@ from aiohttp.web_log import AccessLogger as _AccessLogger
 from contextvars import ContextVar
 from contextlib import ExitStack
 import logging
+import warnings
 from secrets import token_urlsafe
 
 try:
@@ -136,8 +137,29 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
         try:
             with ExitStack() as stack:
                 if sentry_sdk:
-                    scope = stack.enter_context(sentry_sdk.push_scope())
-                    scope.set_tag('request_id', req_id)
+                    # for compatibility with sentry_sdk 1.x and 2.x
+                    # push_scope is deprecated and will be removed
+                    try:
+                        _make_scope = sentry_sdk.isolation_scope
+                    except AttributeError:
+                        try:
+                            _make_scope = sentry_sdk.push_scope
+                            warnings.warn(
+                                "Please upgrade `aiohttp_request_id_logging` to a newer version to support newer `sentry_sdk`.",
+                                UserWarning,
+                            )
+                        except AttributeError:
+                            _make_scope = None
+                            warnings.warn(
+                                "sentry_sdk does not contain isolation_scope or push_scope. "
+                                "This is most likely due to a version change to >2.x, please consult the Sentry documentation on how to fix this. "
+                                "The `request_id` tag will not be pushed to Sentry.",
+                                UserWarning,
+                            )
+
+                    if _make_scope is not None:
+                        scope = stack.enter_context(_make_scope())
+                        scope.set_tag('request_id', req_id)
                 return await _call_handler(request, handler, log_function_name)
         finally:
             request_id.reset(token)
