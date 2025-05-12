@@ -152,7 +152,8 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
                             _make_scope = None
                             warnings.warn(
                                 "sentry_sdk does not contain isolation_scope or push_scope. "
-                                "This is most likely due to a version change to >2.x, please consult the Sentry documentation on how to fix this. "
+                                "This is most likely due to a version change to >2.x, "
+                                "please consult the Sentry documentation on how to fix this. "
                                 "The `request_id` tag will not be pushed to Sentry.",
                                 UserWarning,
                             )
