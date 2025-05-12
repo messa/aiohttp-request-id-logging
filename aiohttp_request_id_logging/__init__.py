@@ -144,10 +144,6 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
                     except AttributeError:
                         try:
                             _make_scope = sentry_sdk.push_scope
-                            warnings.warn(
-                                "Please upgrade `aiohttp_request_id_logging` to a newer version to support newer `sentry_sdk`.",
-                                UserWarning,
-                            )
                         except AttributeError:
                             _make_scope = None
                             warnings.warn(
