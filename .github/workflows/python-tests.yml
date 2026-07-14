@@ -2,10 +2,14 @@ name: Python tests
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+
 jobs:
   build:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     strategy:
       fail-fast: false
@@ -35,10 +39,10 @@ jobs:
           # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
