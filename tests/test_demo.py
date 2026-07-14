@@ -129,6 +129,8 @@ def test_hello_world(run_demo):
     # Warnings coming from aiohttp internals that we cannot do anything about
     whitelisted_warnings = [
         'DeprecationWarning: Setting custom Request._transport_sockname attribute is discouraged',
+        # aiohttp web_urldispatcher.py on Python 3.14:
+        "DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated",
     ]
 
     stderr_is_clean = True
