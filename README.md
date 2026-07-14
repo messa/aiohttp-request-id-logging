@@ -38,13 +38,13 @@ Installation
 ------------
 
 ```shell
-$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.7.zip
+$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.8.zip
 ```
 
 Or add this line to `requirements.txt`:
 
 ```
-aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.7.zip
+aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.8.zip
 ```
 
 
@@ -105,7 +105,7 @@ Sentry integration will be active only if you have `sentry_sdk` installed.
 Version changelog
 -----------------
 
-### 0.0.8 (unreleased)
+### 0.0.8 (2026-07-14)
 
 - Store the request id in the request under a `web.RequestKey` instance,
   exported as `aiohttp_request_id_logging.REQUEST_ID_KEY` — fixes `NotAppKeyWarning`
