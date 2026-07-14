@@ -5,6 +5,7 @@ def test_imported_api():
     assert callable(aiohttp_request_id_logging.setup_logging_request_id_prefix)
     assert aiohttp_request_id_logging.request_id_middleware
     assert aiohttp_request_id_logging.RequestIdContextAccessLogger
+    assert aiohttp_request_id_logging.RequestIdKeyAlreadySetError
 
 
 def test_generate_request_id(monkeypatch):

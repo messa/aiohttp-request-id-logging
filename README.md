@@ -107,7 +107,9 @@ Version changelog
 
 ### 0.0.9 (unreleased)
 
-- Nothing yet :)
+- `request_id_middleware()` now raises `RequestIdKeyAlreadySetError` when the request
+  already contains a request id, for example when the middleware is applied twice
+  or something else also sets the request id
 
 ### 0.0.8 (2026-07-14)
 

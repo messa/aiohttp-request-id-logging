@@ -31,6 +31,22 @@ request_id_default_length = 7
 logger = logging.getLogger(__name__)
 
 
+class RequestIdKeyAlreadySetError (Exception):
+    '''
+    Raised when the request already contains a request id.
+
+    This most likely means that request_id_middleware is applied twice,
+    or that something else also sets the request id in the request.
+    '''
+
+    def __init__(self, existing_request_id):
+        super().__init__(
+            f'The request already contains request id {existing_request_id!r} - '
+            'request_id_middleware is most likely applied twice, '
+            'or something else also sets the request id')
+        self.existing_request_id = existing_request_id
+
+
 def setup_logging_request_id_prefix():
     '''
     Wrap logging request factory so that every log record gets an attribute
@@ -140,6 +156,8 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
         to some random value identifying the given request.
         '''
         req_id = request_id_factory()
+        if REQUEST_ID_KEY in request:
+            raise RequestIdKeyAlreadySetError(request[REQUEST_ID_KEY])
         request[REQUEST_ID_KEY] = req_id
         if not isinstance(REQUEST_ID_KEY, str):
             # Store the request id also under the plain string key for
@@ -149,6 +167,8 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
             # so silence it here.
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore', getattr(web, 'NotAppKeyWarning', UserWarning))
+                if "request_id" in request:
+                    raise RequestIdKeyAlreadySetError(request["request_id"])
                 request['request_id'] = req_id
         token = request_id.set(req_id)
         try:
