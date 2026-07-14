@@ -110,6 +110,16 @@ Version changelog
 - `request_id_middleware()` now raises `RequestIdKeyAlreadySetError` when the request
   already contains a request id, for example when the middleware is applied twice
   or something else also sets the request id
+- The middleware was refactored into a class `RequestIdMiddleware` so that it can be
+  subclassed and individual parts of the behavior customized by overriding methods
+  (`before_request`, `call_handler`, `after_request`, `log_request_start`,
+  `set_request_keys`, `setup_sentry_scope`...)
+  - `request_id_middleware` is kept as a backward compatibility alias
+  - the deprecated-in-aiohttp-4 `@web.middleware` decorator is no longer used
+- Behavior change: `HTTPException` raised from a handler is now returned as the response
+  instead of being re-raised, so middlewares outside of this one will not see the exception
+- The Sentry `isolation_scope`/`push_scope` detection happens once when the middleware
+  is created instead of on every request
 
 ### 0.0.8 (2026-07-14)
 

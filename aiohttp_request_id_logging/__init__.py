@@ -146,20 +146,109 @@ sequential_request_id_factory = SequentialRequestIdFactory()
 default_request_id_factory = random_request_id_factory
 
 
-def request_id_middleware(request_id_factory=None, log_function_name=True):
-    request_id_factory = request_id_factory or default_request_id_factory
+def _resolve_sentry_make_scope():
+    '''
+    Find the function for creating a new Sentry scope, or return None
+    if sentry_sdk is not installed (or provides no such function).
 
-    @web.middleware
-    async def _request_id_middleware(request, handler):
-        '''
-        Aiohttp middleware that sets request_id contextvar and request[REQUEST_ID_KEY]
-        to some random value identifying the given request.
-        '''
-        req_id = request_id_factory()
+    For compatibility with sentry_sdk 1.x and 2.x:
+    push_scope is deprecated and will be removed, isolation_scope is its
+    recommended replacement for the request-response cycle.
+    '''
+    if sentry_sdk is None:
+        return None
+    try:
+        return sentry_sdk.isolation_scope
+    except AttributeError:
+        pass
+    try:
+        return sentry_sdk.push_scope
+    except AttributeError:
+        warnings.warn(
+            "sentry_sdk does not contain isolation_scope or push_scope. "
+            "This is most likely due to a version change to >2.x, "
+            "please consult the Sentry documentation on how to fix this. "
+            "The `request_id` tag will not be pushed to Sentry.",
+            UserWarning,
+        )
+        return None
+
+
+class RequestIdMiddleware:
+
+    __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
+
+    def __init__(
+        self,
+        request_id_factory=None,
+        log_function_name=True,
+    ):
+        self.request_id_factory = request_id_factory or default_request_id_factory
+        self.log_function_name = log_function_name
+        self.request_id_cv = request_id
+        self.sentry_make_scope = _resolve_sentry_make_scope()
+
+    async def __call__(self, request, handler):
+        req_id = self.request_id_factory()
+        with ExitStack() as stack:
+            # Set request id context variable as a first thing
+            token = self.request_id_cv.set(req_id)
+            stack.callback(lambda: self.request_id_cv.reset(token))
+
+            await self.before_request(request, handler, req_id, stack)
+            response = await self.call_handler(request, handler, req_id, stack)
+            await self.after_request(request, handler, response, req_id, stack)
+            return response
+
+    async def before_request(self, request, handler, req_id, stack):
+        # Sentry scope comes first so that the following log messages
+        # are captured in it (as breadcrumbs).
+        self.setup_sentry_scope(req_id, stack)
+        self.log_request_start(request, handler)
+        self.set_request_keys(request, req_id)
+
+    async def call_handler(self, request, handler, req_id, stack):
+        """
+        Call handler and return response.
+
+        If handler raises an exception, convert it to response object.
+        """
+        try:
+            response = await handler(request)
+        except CancelledError as e:
+            logger.info('(Cancelled)')
+            raise e
+        except HTTPException as e:
+            response = e
+        except Exception as e:
+            # We are processing 500 error right here, because if we let it
+            # the web server to process, it would be outside of the request_id
+            # contextvar scope.
+            # (And also outside the sentry scope, if sentry is enabled.)
+            logger.exception("Error handling request: %r", e)
+            response = web.Response(
+                status=500,
+                text="500 Internal Server Error\n")
+            response.force_close()
+        return response
+
+    async def after_request(self, request, handler, response, req_id, stack):
+        pass
+
+    def log_request_start(self, request, handler):
+        if self.log_function_name:
+            logger.info('Processing %s %s (%s)', request.method, request.path, self.get_function_name(handler))
+        else:
+            logger.info('Processing %s %s', request.method, request.path)
+
+    def set_request_keys(self, request, req_id):
+        """
+        Set request["request_id"] - both str and AppKey keys
+        """
         if REQUEST_ID_KEY in request:
             raise RequestIdKeyAlreadySetError(request[REQUEST_ID_KEY])
         request[REQUEST_ID_KEY] = req_id
-        if not isinstance(REQUEST_ID_KEY, str):
+        if type(REQUEST_ID_KEY) is not str:
             # Store the request id also under the plain string key for
             # backward compatibility with code reading request['request_id'].
             # aiohttp 3.13/3.14 emits NotAppKeyWarning for str keys
@@ -170,69 +259,26 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
                 if "request_id" in request:
                     raise RequestIdKeyAlreadySetError(request["request_id"])
                 request['request_id'] = req_id
-        token = request_id.set(req_id)
+
+    def setup_sentry_scope(self, req_id, stack):
+        """
+        Create a new Sentry scope (entered into the given ExitStack)
+        and add the request_id tag to it.
+
+        Does nothing if sentry_sdk is not installed.
+        """
+        if self.sentry_make_scope is not None:
+            scope = stack.enter_context(self.sentry_make_scope())
+            scope.set_tag('request_id', req_id)
+
+    @staticmethod
+    def get_function_name(f):
         try:
-            with ExitStack() as stack:
-                if sentry_sdk:
-                    # for compatibility with sentry_sdk 1.x and 2.x
-                    # push_scope is deprecated and will be removed
-                    try:
-                        _make_scope = sentry_sdk.isolation_scope
-                    except AttributeError:
-                        try:
-                            _make_scope = sentry_sdk.push_scope
-                        except AttributeError:
-                            _make_scope = None
-                            warnings.warn(
-                                "sentry_sdk does not contain isolation_scope or push_scope. "
-                                "This is most likely due to a version change to >2.x, "
-                                "please consult the Sentry documentation on how to fix this. "
-                                "The `request_id` tag will not be pushed to Sentry.",
-                                UserWarning,
-                            )
-
-                    if _make_scope is not None:
-                        scope = stack.enter_context(_make_scope())
-                        scope.set_tag('request_id', req_id)
-                return await _call_handler(request, handler, log_function_name)
-        finally:
-            request_id.reset(token)
-
-    return _request_id_middleware
+            return f'{f.__module__}:{f.__name__}'
+        except Exception:
+            return str(f)
 
 
-def get_function_name(f):
-    try:
-        return f'{f.__module__}:{f.__name__}'
-    except Exception:
-        return str(f)
-
-
-async def _call_handler(request, handler, log_function_name):
-    '''
-    Used in request_id_middleware to wrap handler call with some logging.
-    '''
-    try:
-        if log_function_name:
-            logger.info('Processing %s %s (%s)', request.method, request.path, get_function_name(handler))
-        else:
-            logger.info('Processing %s %s', request.method, request.path)
-        return await handler(request)
-    except CancelledError as e:
-        logger.info('(Cancelled)')
-        raise e
-    except HTTPException as e:
-        logger.debug('HTTPException: %r', e)
-        raise e
-    except Exception as e:
-        # We are processing 500 error right here, because if we let it
-        # the web server to process, it would be outside of the request_id
-        # contextvar scope.
-        # (And also outside the sentry scope, if sentry is enabled.)
-        logger.exception('Error handling request: %r', e)
-        resp = web.Response(
-            status=500,
-            text='500 Internal Server Error\n',
-            content_type='text/plain')
-        resp.force_close()
-        return resp
+# old name for backward compatibility - request_id_middleware() used to be
+# a factory function returning the middleware
+request_id_middleware = RequestIdMiddleware
