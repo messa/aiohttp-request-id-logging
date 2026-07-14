@@ -105,6 +105,10 @@ Sentry integration will be active only if you have `sentry_sdk` installed.
 Version changelog
 -----------------
 
+### 0.0.9 (unreleased)
+
+- Nothing yet :)
+
 ### 0.0.8 (2026-07-14)
 
 - Store the request id in the request under a `web.RequestKey` instance,
