@@ -102,6 +102,86 @@ This library helps you to add request (correlation) id to the log messages in a 
 Sentry integration will be active only if you have `sentry_sdk` installed.
 
 
+Reference
+---------
+
+All names are importable directly from the `aiohttp_request_id_logging` package.
+
+### `RequestIdMiddleware`
+
+The aiohttp middleware. Generates a request id for every request, stores it
+in the `request_id` ContextVar and in the request, and (if Sentry is installed)
+creates a Sentry scope with a `request_id` tag.
+
+Constructor parameters (all keyword-only):
+
+- `request_id_factory` – a zero-argument callable returning the request id string;
+  default: `random_request_id_factory`
+- `log_request_start` – log the `Processing GET / (...)` message at the start
+  of each request; default: `True`
+- `log_function_name` – include the handler name in the request start message;
+  default: `True`
+
+The behavior can be customized by subclassing and overriding methods:
+`before_request`, `call_handler`, `after_request`, `log_request_start_message`,
+`set_request_keys`, `setup_sentry_scope`, `get_function_name`.
+
+`request_id_middleware` is a backward compatibility alias of this class.
+
+### `setup_logging_request_id_prefix()`
+
+Wraps the logging record factory so that every log record gets two extra
+attributes usable in the log format:
+
+- `%(requestIdPrefix)s` – `"[req:O5bvIlU] "`, or an empty string outside of a request
+- `%(request_id)s` – the raw request id, or `None`
+
+Safe to call multiple times (does the setup only once).
+
+### `RequestIdContextAccessLogger`
+
+Subclass of `aiohttp.web_log.AccessLogger` that sets the `request_id`
+ContextVar while writing the access log line. Needed because aiohttp writes
+the access log outside of the middleware scope. Pass it to
+`run_app(app, access_log_class=RequestIdContextAccessLogger)`.
+
+### `request_id`
+
+`ContextVar` holding the request id of the currently processed request.
+Read it with `request_id.get(None)`.
+
+### `REQUEST_ID_KEY`
+
+Key under which the request id is stored in the request:
+`request[REQUEST_ID_KEY]`. It is a `web.RequestKey` instance on aiohttp
+versions that support it, otherwise the plain string `'request_id'`.
+(The plain string key `request['request_id']` is always set as well,
+for backward compatibility.)
+
+### Request id factories
+
+- `random_request_id_factory()` – the default; returns a random URL-safe string
+  (`generate_request_id` is its backward compatibility alias)
+- `request_id_default_length` – module-level variable with the length of the
+  generated random id; default: 7
+- `sequential_request_id_factory` / `SequentialRequestIdFactory` – alternative
+  factory producing ids like `Wxyz0001`, `Wxyz0002`… – a random per-process
+  prefix followed by a sequential number
+
+Usage: `RequestIdMiddleware(request_id_factory=sequential_request_id_factory)`
+
+Caveat: if the request ids are ever exposed to clients (response header,
+error page…), sequential ids reveal how many requests the server processes
+and how many server processes there are. If that is a concern, stick with
+the default random factory.
+
+### `RequestIdKeyAlreadySetError`
+
+Raised by the middleware when the request already contains a request id –
+most likely the middleware is applied twice, or something else sets it too.
+The existing id is available as the `existing_request_id` attribute.
+
+
 Version changelog
 -----------------
 

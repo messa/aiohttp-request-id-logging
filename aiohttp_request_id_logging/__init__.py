@@ -1,3 +1,9 @@
+'''
+Adds a request (correlation) id to log messages in aiohttp web applications.
+
+See README.md for usage and reference documentation.
+'''
+
 from asyncio import CancelledError
 from os import getpid
 from aiohttp import web
@@ -49,10 +55,14 @@ class RequestIdKeyAlreadySetError (Exception):
 
 def setup_logging_request_id_prefix():
     '''
-    Wrap logging request factory so that every log record gets an attribute
-    record.requestIdPrefix.
+    Wrap logging record factory so that every log record gets two extra attributes:
 
-    You can then use it in log format as "%(requestIdPrefix)s".
+    - record.requestIdPrefix - "[req:...] ", or an empty string outside of a request
+    - record.request_id - the raw request id, or None
+
+    You can then use them in log format as "%(requestIdPrefix)s" or "%(request_id)s".
+
+    Safe to call multiple times - the setup is done only once.
     '''
     # make sure we are doing this only once
     if getattr(logging, 'request_id_log_record_factory_set_up', False):
@@ -72,6 +82,15 @@ def setup_logging_request_id_prefix():
 
 
 class RequestIdContextAccessLogger (_AccessLogger):
+    '''
+    Subclass of aiohttp.web_log.AccessLogger that sets the request_id
+    ContextVar while writing the access log line.
+
+    Needed because aiohttp writes the access log outside of the middleware
+    scope, where the ContextVar is already reset.
+
+    Usage: run_app(app, access_log_class=RequestIdContextAccessLogger)
+    '''
 
     def log(self, request, response, time):
         try:
@@ -92,7 +111,10 @@ class RequestIdContextAccessLogger (_AccessLogger):
 
 def random_request_id_factory():
     '''
-    Used in request_id_middleware to generate the request id
+    Generate a random request id - a URL-safe string of length
+    request_id_default_length.
+
+    This is the default request id factory used in RequestIdMiddleware.
     '''
     req_id = token_urlsafe(request_id_default_length)[:request_id_default_length]
     req_id = req_id.replace('_', 'x').replace('-', 'X')
@@ -105,7 +127,15 @@ generate_request_id = random_request_id_factory
 
 class SequentialRequestIdFactory:
     '''
-    Can be used in request_id_middleware to generate the request id
+    Alternative request id factory producing ids like "Wxyz0001", "Wxyz0002"...
+    - a random per-process prefix followed by a sequential number.
+
+    Usage: RequestIdMiddleware(request_id_factory=sequential_request_id_factory)
+
+    Caveat: if the request ids are ever exposed to clients (response header,
+    error page...), sequential ids reveal how many requests the server
+    processes and how many server processes there are. If that is a concern,
+    use the default random_request_id_factory instead.
     '''
 
     prefix_length = 4
@@ -175,6 +205,27 @@ def _resolve_sentry_make_scope():
 
 
 class RequestIdMiddleware:
+    '''
+    aiohttp middleware that generates a request id for every request,
+    stores it in the request_id ContextVar and in the request
+    (request[REQUEST_ID_KEY]), and - if sentry_sdk is installed - creates
+    a Sentry scope with a request_id tag.
+
+    Constructor parameters (all keyword-only):
+
+    - request_id_factory: zero-argument callable returning the request id
+      string; default: random_request_id_factory
+    - log_request_start: log the "Processing GET / (...)" message at the
+      start of each request; default: True
+    - log_function_name: include the handler name in the request start
+      message; default: True
+
+    The behavior can be customized by subclassing and overriding methods:
+    before_request, call_handler, after_request, log_request_start_message,
+    set_request_keys, setup_sentry_scope, get_function_name.
+
+    request_id_middleware is a backward compatibility alias of this class.
+    '''
 
     __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
 
@@ -194,6 +245,13 @@ class RequestIdMiddleware:
         self.sentry_make_scope = _resolve_sentry_make_scope()
 
     async def __call__(self, request, handler):
+        """
+        The middleware entrypoint - process one request.
+
+        Sets the request_id ContextVar for the whole duration of the request
+        processing and delegates the rest to before_request, call_handler
+        and after_request.
+        """
         req_id = self.request_id_factory()
         with ExitStack() as stack:
             # Set request id context variable as a first thing
@@ -206,6 +264,13 @@ class RequestIdMiddleware:
             return response
 
     async def before_request(self, request, handler, req_id, stack):
+        """
+        Called before the handler: set up the Sentry scope, log the request
+        start message and store the request id in the request.
+
+        The stack parameter (a contextlib.ExitStack) can be used to register
+        cleanup that runs after the request is processed.
+        """
         # Sentry scope comes first so that the following log messages
         # are captured in it (as breadcrumbs).
         self.setup_sentry_scope(req_id, stack)
@@ -239,9 +304,16 @@ class RequestIdMiddleware:
         return response
 
     async def after_request(self, request, handler, response, req_id, stack):
+        """
+        Called after the handler returns (or its exception is converted
+        to a response). Does nothing by default - a hook for subclasses.
+        """
         pass
 
     def log_request_start_message(self, request, handler):
+        """
+        Log the "Processing GET / (...)" message at the start of the request.
+        """
         if self.log_function_name:
             logger.info('Processing %s %s (%s)', request.method, request.path, self.get_function_name(handler))
         else:
@@ -279,6 +351,9 @@ class RequestIdMiddleware:
 
     @staticmethod
     def get_function_name(f):
+        """
+        Return a human-readable handler name for the request start message.
+        """
         try:
             return f'{f.__module__}:{f.__name__}'
         except Exception:
