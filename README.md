@@ -77,7 +77,7 @@ app.router.add_routes(routes)
 run_app(app, access_log_class=RequestIdContextAccessLogger)
 ```
 
-For more complete example see [demo.py](demo.py).
+For more complete example see [examples/demo.py](examples/demo.py).
 
 
 How it works

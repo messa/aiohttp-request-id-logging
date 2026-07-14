@@ -7,8 +7,8 @@ def test_imported_api():
     assert aiohttp_request_id_logging.RequestIdContextAccessLogger
 
 
-def test_generate_request_id():
+def test_generate_request_id(monkeypatch):
     assert aiohttp_request_id_logging.request_id_default_length == 7
     assert len(aiohttp_request_id_logging.generate_request_id()) == 7
-    aiohttp_request_id_logging.request_id_default_length = 9
+    monkeypatch.setattr(aiohttp_request_id_logging, 'request_id_default_length', 9)
     assert len(aiohttp_request_id_logging.generate_request_id()) == 9

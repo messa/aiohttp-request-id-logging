@@ -1,7 +1,7 @@
 [project]
 name = "aiohttp-request-id-logging"
 version = "0.0.7"
-description= " Setup proper request id logging for your Aiohttp app"
+description = "Setup proper request id logging for your Aiohttp app"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {file = "LICENSE"}
@@ -11,8 +11,6 @@ maintainers = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
