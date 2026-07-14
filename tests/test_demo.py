@@ -126,9 +126,16 @@ def test_hello_world(run_demo):
     assert m0.groups() == m1.groups()
     assert m0.groups() == m2.groups()
 
+    # Warnings coming from aiohttp internals that we cannot do anything about
+    whitelisted_warnings = [
+        'DeprecationWarning: Setting custom Request._transport_sockname attribute is discouraged',
+    ]
+
     stderr_is_clean = True
     for line in demo.stderr_lines:
-        if "ERROR" in line:
+        if any(w in line for w in whitelisted_warnings):
+            logger.info("Ignoring whitelisted warning in stderr line: %s", line)
+        elif "ERROR" in line:
             logger.error("Have error in stderr line: %r", line)
             stderr_is_clean = False
         elif "WARNING" in line or "Warning" in line:

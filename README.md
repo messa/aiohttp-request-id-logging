@@ -88,7 +88,8 @@ This library helps you to add request (correlation) id to the log messages in a 
 1. **`request_id_middleware()`:** Generate random `request_id` for each aiohttp request and
 
    - store it in a ContextVar `aiohttp_request_id_logging.request_id`
-   - store it also in `request['request_id']`
+   - store it also in the request storage: `request[aiohttp_request_id_logging.REQUEST_ID_KEY]`
+     (and also under the plain string key `request['request_id']` for backward compatibility)
 
 2. **`setup_logging_request_id_prefix()`:** Modify logging record factory so that the request_id is attached to every logging record created
 

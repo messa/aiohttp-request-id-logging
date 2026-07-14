@@ -18,6 +18,14 @@ except ImportError:
 # contextvar that contains given request tracing id
 request_id = ContextVar('request_id')
 
+try:
+    # key for storing the request id in the request; aiohttp recommends
+    # web.RequestKey instances instead of plain strings
+    REQUEST_ID_KEY = web.RequestKey('request_id', str)
+except AttributeError:
+    # older aiohttp without web.RequestKey
+    REQUEST_ID_KEY = 'request_id'
+
 request_id_default_length = 7
 
 logger = logging.getLogger(__name__)
@@ -51,9 +59,9 @@ class RequestIdContextAccessLogger (_AccessLogger):
 
     def log(self, request, response, time):
         try:
-            request_id_value = request['request_id']
+            request_id_value = request[REQUEST_ID_KEY]
         except KeyError:
-            # If there is no request['request_id'], for example when an error
+            # If there is no request[REQUEST_ID_KEY], for example when an error
             # occurs in a middleware, fall back to just logging without setting
             # the request_id context variable.
             super().log(request, response, time)
@@ -128,11 +136,20 @@ def request_id_middleware(request_id_factory=None, log_function_name=True):
     @web.middleware
     async def _request_id_middleware(request, handler):
         '''
-        Aiohttp middleware that sets request_id contextvar and request['request_id']
+        Aiohttp middleware that sets request_id contextvar and request[REQUEST_ID_KEY]
         to some random value identifying the given request.
         '''
         req_id = request_id_factory()
-        request['request_id'] = req_id
+        request[REQUEST_ID_KEY] = req_id
+        if not isinstance(REQUEST_ID_KEY, str):
+            # Store the request id also under the plain string key for
+            # backward compatibility with code reading request['request_id'].
+            # aiohttp 3.13/3.14 emits NotAppKeyWarning for str keys
+            # (the warning is being removed again in aiohttp master),
+            # so silence it here.
+            with warnings.catch_warnings():
+                warnings.simplefilter('ignore', getattr(web, 'NotAppKeyWarning', UserWarning))
+                request['request_id'] = req_id
         token = request_id.set(req_id)
         try:
             with ExitStack() as stack:
