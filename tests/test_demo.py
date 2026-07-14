@@ -1,8 +1,13 @@
+"""
+Run examples/demo.py (aiohttp server with request id logging implemented) and try to call it.
+"""
+
 from aiohttp import ClientSession
 from asyncio import run
 from collections import namedtuple
 from contextlib import contextmanager
 from logging import getLogger
+from os import environ
 from pytest import fixture
 import re
 from socket import socket
@@ -57,7 +62,11 @@ def run_demo(demo_executable):
     @contextmanager
     def do_run_demo():
         cmd = [python_executable, str(demo_executable)]
-        with Popen(cmd, stdin=DEVNULL, stdout=PIPE, stderr=PIPE) as process:
+        cmd_env = {
+            **environ,
+            "PYTHONDEVMODE": "1",  # Enable printing of warnings, e.g. NotAppKeyWarning
+        }
+        with Popen(cmd, stdin=DEVNULL, stdout=PIPE, stderr=PIPE, env=cmd_env) as process:
             stdout_lines = []
             stderr_lines = []
             stdout_thread = Thread(target=read_output, args=(process.stdout, stdout_lines, 'stdout'), daemon=True)
@@ -106,7 +115,7 @@ def test_hello_world(run_demo):
         text = run(fetch())
         assert text == 'Hello, world!\n'
 
-    lines = [line for line in demo.stderr_lines if 'DEBUG' not in line]
+    lines = [line for line in demo.stderr_lines if 'INFO' in line and " asyncio " not in line]
     assert len(lines) == 3
     m0 = re.match(r'.*  INFO: \[req:([a-zA-Z0-9]+)\] Processing GET / \(__main__:hello\)$', lines[0])
     m1 = re.match(r'.*  INFO: \[req:([a-zA-Z0-9]+)\] Doing something$', lines[1])
@@ -116,3 +125,14 @@ def test_hello_world(run_demo):
     assert m2
     assert m0.groups() == m1.groups()
     assert m0.groups() == m2.groups()
+
+    stderr_is_clean = True
+    for line in demo.stderr_lines:
+        if "ERROR" in line:
+            logger.error("Have error in stderr line: %r", line)
+            stderr_is_clean = False
+        elif "WARNING" in line or "Warning" in line:
+            logger.error("Have warning in stderr line: %s", line)
+            stderr_is_clean = False
+
+    assert stderr_is_clean
