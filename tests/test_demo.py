@@ -3,11 +3,11 @@ from asyncio import run
 from collections import namedtuple
 from contextlib import contextmanager
 from logging import getLogger
-from pathlib import Path
 from pytest import fixture
 import re
 from socket import socket
-from subprocess import Popen, DEVNULL, PIPE
+from subprocess import Popen, DEVNULL, PIPE, check_call
+from sys import executable as python_executable
 from threading import Thread
 from time import sleep
 
@@ -18,11 +18,16 @@ logger = getLogger(__name__)
 
 
 @fixture(scope='session')
-def demo_executable():
-    project_dir = Path(__file__).resolve().parent.parent
-    demo_path = project_dir / 'demo.py'
+def demo_executable(examples_dir):
+    demo_path = examples_dir / 'demo.py'
     assert demo_path.is_file()
     return demo_path
+
+
+def test_demo_help(demo_executable):
+    cmd = [python_executable, str(demo_executable), '--help']
+    logger.debug("Running command: %r", cmd)
+    assert check_call(cmd) == 0
 
 
 def tcp_connect_works(host, port):
@@ -51,7 +56,7 @@ RunningDemo = namedtuple('RunningDemo', 'process stdout_lines stderr_lines')
 def run_demo(demo_executable):
     @contextmanager
     def do_run_demo():
-        cmd = ['python3', str(demo_executable)]
+        cmd = [python_executable, str(demo_executable)]
         with Popen(cmd, stdin=DEVNULL, stdout=PIPE, stderr=PIPE) as process:
             stdout_lines = []
             stderr_lines = []

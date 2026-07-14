@@ -1,5 +1,6 @@
 from aiohttp.web import Response, RouteTableDef, Application, run_app, AppRunner, TCPSite
 from aiohttp.web_log import AccessLogger
+from argparse import ArgumentParser
 from asyncio import sleep, run
 from logging import DEBUG, basicConfig, getLogger
 import os
@@ -16,6 +17,8 @@ from aiohttp_request_id_logging import (
     sequential_request_id_factory,
     RequestIdContextAccessLogger)
 
+
+LOG_FORMAT = '%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s'
 
 logger = getLogger(__name__)
 
@@ -59,9 +62,14 @@ async def log_error(request):
 
 
 def main():
+    parser = ArgumentParser()
+    parser.add_argument('--host', type=str, default='localhost', help='Host to listen on')
+    parser.add_argument('--port', type=int, default=8080, help='Port to listen on')
+    args = parser.parse_args()
+
     basicConfig(
         level=DEBUG,
-        format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
+        format=LOG_FORMAT)
 
     setup_logging_request_id_prefix()
 
@@ -90,17 +98,17 @@ def main():
         access_log_format=AccessLogger.LOG_FORMAT.replace(' %t ', ' ') + ' %Tf')
     '''
 
-    run(run_my_app(app))
+    run(run_my_app(app, args.host, args.port))
 
 
-async def run_my_app(app):
+async def run_my_app(app, host, port):
     runner = AppRunner(
         app,
         access_log_class=RequestIdContextAccessLogger,
         access_log_format=AccessLogger.LOG_FORMAT.replace(' %t ', ' ') + ' %Tf')
     try:
         await runner.setup()
-        site = TCPSite(runner, 'localhost', 8080)
+        site = TCPSite(runner, host, port)
         await site.start()
         while True:
             await sleep(3600)  # sleep forever

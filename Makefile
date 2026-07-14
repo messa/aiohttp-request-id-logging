@@ -4,7 +4,7 @@ python=python3
 default: check lint
 
 check: $(venv_dir)/bin/pytest
-	$(venv_dir)/bin/pytest -vs tests $(pytest_args)
+	$(venv_dir)/bin/pytest --log-level=DEBUG --tb=short -v tests $(pytest_args)
 
 lint: $(venv_dir)/bin/flake8
 	$(venv_dir)/bin/flake8 . --show-source --statistics
