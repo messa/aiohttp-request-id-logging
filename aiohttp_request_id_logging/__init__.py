@@ -180,10 +180,15 @@ class RequestIdMiddleware:
 
     def __init__(
         self,
+        *,
         request_id_factory=None,
+        log_request_start=True,
         log_function_name=True,
     ):
+        assert isinstance(log_request_start, bool)
+        assert isinstance(log_function_name, bool)
         self.request_id_factory = request_id_factory or default_request_id_factory
+        self.log_request_start = log_request_start
         self.log_function_name = log_function_name
         self.request_id_cv = request_id
         self.sentry_make_scope = _resolve_sentry_make_scope()
@@ -204,7 +209,8 @@ class RequestIdMiddleware:
         # Sentry scope comes first so that the following log messages
         # are captured in it (as breadcrumbs).
         self.setup_sentry_scope(req_id, stack)
-        self.log_request_start(request, handler)
+        if self.log_request_start:
+            self.log_request_start_message(request, handler)
         self.set_request_keys(request, req_id)
 
     async def call_handler(self, request, handler, req_id, stack):
@@ -235,7 +241,7 @@ class RequestIdMiddleware:
     async def after_request(self, request, handler, response, req_id, stack):
         pass
 
-    def log_request_start(self, request, handler):
+    def log_request_start_message(self, request, handler):
         if self.log_function_name:
             logger.info('Processing %s %s (%s)', request.method, request.path, self.get_function_name(handler))
         else:

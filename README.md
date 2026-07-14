@@ -107,12 +107,17 @@ Version changelog
 
 ### 0.0.9 (unreleased)
 
+- New parameter `request_id_middleware(log_request_start=False)` disables logging
+  of the "Processing ..." message at the start of each request
+- All `request_id_middleware()` parameters are now keyword-only; positional calls
+  like `request_id_middleware(my_factory)` raise `TypeError` — use
+  `request_id_middleware(request_id_factory=my_factory)` instead
 - `request_id_middleware()` now raises `RequestIdKeyAlreadySetError` when the request
   already contains a request id, for example when the middleware is applied twice
   or something else also sets the request id
 - The middleware was refactored into a class `RequestIdMiddleware` so that it can be
   subclassed and individual parts of the behavior customized by overriding methods
-  (`before_request`, `call_handler`, `after_request`, `log_request_start`,
+  (`before_request`, `call_handler`, `after_request`, `log_request_start_message`,
   `set_request_keys`, `setup_sentry_scope`...)
   - `request_id_middleware` is kept as a backward compatibility alias
   - the deprecated-in-aiohttp-4 `@web.middleware` decorator is no longer used

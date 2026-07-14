@@ -1,6 +1,7 @@
 from asyncio import run
 from aiohttp import web
 from aiohttp.test_utils import make_mocked_request
+from logging import INFO
 from pytest import raises
 import warnings
 
@@ -29,6 +30,35 @@ def test_middleware_sets_request_id():
     assert request['request_id'] == request[REQUEST_ID_KEY]
     # the contextvar is reset after the middleware finishes
     assert request_id.get(None) is None
+
+
+def test_middleware_logs_request_start_by_default(caplog):
+    middleware = request_id_middleware()
+    request = make_mocked_request('GET', '/')
+    with caplog.at_level(INFO, logger='aiohttp_request_id_logging'):
+        response = run(middleware(request, hello))
+    assert response.status == 200
+    # the message includes the handler function name by default
+    assert f'Processing GET / ({hello.__module__}:hello)' in [r.message for r in caplog.records]
+
+
+def test_middleware_log_function_name_can_be_disabled(caplog):
+    middleware = request_id_middleware(log_function_name=False)
+    request = make_mocked_request('GET', '/')
+    with caplog.at_level(INFO, logger='aiohttp_request_id_logging'):
+        response = run(middleware(request, hello))
+    assert response.status == 200
+    # exact match - no function name suffix
+    assert 'Processing GET /' in [r.message for r in caplog.records]
+
+
+def test_middleware_log_request_start_can_be_disabled(caplog):
+    middleware = request_id_middleware(log_request_start=False)
+    request = make_mocked_request('GET', '/')
+    with caplog.at_level(INFO, logger='aiohttp_request_id_logging'):
+        response = run(middleware(request, hello))
+    assert response.status == 200
+    assert not any(r.message.startswith('Processing') for r in caplog.records)
 
 
 def test_middleware_raises_when_request_id_key_already_set():
