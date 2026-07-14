@@ -102,6 +102,60 @@ This library helps you to add request (correlation) id to the log messages in a 
 Sentry integration will be active only if you have `sentry_sdk` installed.
 
 
+Version changelog
+-----------------
+
+### 0.0.8 (unreleased)
+
+- Store the request id in the request under a `web.RequestKey` instance,
+  exported as `aiohttp_request_id_logging.REQUEST_ID_KEY` — fixes `NotAppKeyWarning`
+  emitted by aiohttp 3.13/3.14
+  - the plain string key `request['request_id']` is still set for backward compatibility
+- Moved `demo.py` to [examples/](examples/)
+- Fixed pyproject metadata
+- Tests: run the demo in Python dev mode and assert clean stderr
+  (aiohttp-internal warnings are whitelisted)
+- Github Actions: added Python 3.14, updated action versions
+
+### 0.0.7 (2025-05-12)
+
+- Support new scope handling (`isolation_scope`) in sentry_sdk 2.x
+  and removed an incorrect upgrade warning
+  ([#6](https://github.com/messa/aiohttp-request-id-logging/pull/6), thanks @martinhanzik)
+- Github Actions: added Python 3.13
+
+### 0.0.6 (2024-06-02)
+
+- Added `sequential_request_id_factory` as an alternative request id generator
+- Improved `demo.py` and added a test running it
+
+### 0.0.5 (2024-05-02)
+
+- `RequestIdContextAccessLogger` no longer fails when the request id is not set,
+  for example when an error occurs in a middleware
+- Github Actions: added Python 3.12
+
+### 0.0.4 (2023-05-11)
+
+- Fixed `request_id_default_length` handling: the generated request id is now
+  exactly that many characters long (and the default was changed from 5 to 7)
+
+### 0.0.3 (2023-05-11)
+
+- Added `req:` to the log record prefix: `[x12y3]` → `[req:x12y3]`
+
+### 0.0.2 (2023-05-11)
+
+- Migrated packaging from `setup.py` to `pyproject.toml`
+- Added flake8 lint configuration
+- Github Actions: added Python 3.10 and 3.11, added aiohttp version matrix
+
+### 0.0.1 (2021-05-18)
+
+- Initial release: `request_id_middleware()`, `setup_logging_request_id_prefix()`,
+  `RequestIdContextAccessLogger` and the Sentry `request_id` tag integration
+
+
 Alternatives
 ------------
 
