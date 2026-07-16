@@ -24,12 +24,12 @@ But it is not always this case, or you may want to inspect also other log messag
 When you start to use this library in your aiohttp web application, this is how your log messages will look like:
 
 ```
-2020-01-15 15:58:47,238  INFO: [req:O5bvIlU] Processing GET / (__main__:hello)
+2020-01-15 15:58:47,238  INFO: [req:kbyLG8d] Processing GET / (__main__:hello)
 2020-01-15 15:58:47,950  INFO: [req:xtMacpA] Processing GET / (__main__:hello)
-2020-01-15 15:58:48,240  INFO: [req:O5bvIlU] Processing transfer id 1234
+2020-01-15 15:58:48,240  INFO: [req:kbyLG8d] Processing transfer id 1234
 2020-01-15 15:58:48,953  INFO: [req:xtMacpA] Processing transfer id 5678
 2020-01-15 15:58:49,182 ERROR: [req:xtMacpA] Oh no, something bad has happened! Cannot finish the transfer.
-2020-01-15 15:58:49,242  INFO: [req:O5bvIlU] 127.0.0.1 "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
+2020-01-15 15:58:49,242  INFO: [req:kbyLG8d] 127.0.0.1 "GET / HTTP/1.1" 200 165 "-" "curl/7.68.0"
 2020-01-15 15:58:49,959  INFO: [req:xtMacpA] 127.0.0.1 "GET / HTTP/1.1" 500 165 "-" "curl/7.68.0"
 ```
 
@@ -68,7 +68,7 @@ async def hello(request):
 
 basicConfig(
     level=DEBUG,
-    format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
+    format='%(asctime)s [%(threadName)s] %(name)-37s %(levelname)5s: %(requestIdPrefix)s%(message)s')
 
 setup_logging_request_id_prefix()
 
@@ -105,7 +105,9 @@ This library helps you to add request (correlation) id to the log messages in a 
 
 3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So **`RequestIdAccessLogger`** is provided that adds the request_id to the access log message.
 
-4. If you use **[Sentry](https://docs.sentry.io/platforms/python/aiohttp/)**, a `request_id` [tag](https://docs.sentry.io/enriching-error-data/context/?platform=python#tagging-events) is added when the request is processed.
+4. Unhandled exceptions ("500 errors") are logged and converted to a 500 response directly by **`RequestIdMiddleware`** – if they were left to the standard aiohttp error handling, the traceback would be logged outside of the middleware scope, without the request id (see the [Reference](#requestidmiddleware) for details).
+
+5. If you use **[Sentry](https://docs.sentry.io/platforms/python/aiohttp/)**, a `request_id` [tag](https://docs.sentry.io/enriching-error-data/context/?platform=python#tagging-events) is added when the request is processed.
 
 Sentry integration will be active only if you have `sentry_sdk` installed.
 
@@ -121,6 +123,23 @@ The aiohttp middleware. Generates a request id for every request, stores it
 in the `request_id` ContextVar and in the request, adds an `X-Request-Id`
 response header, and (if Sentry is installed) creates a Sentry scope with
 a `request_id` tag.
+
+Exceptions raised from the handler are processed by the middleware too:
+
+- an `HTTPException` (the aiohttp way of returning error responses from
+  anywhere in the handler) is re-raised for aiohttp to process, with the
+  request id response header added to it first
+- any other unhandled exception is logged together with its traceback and
+  converted to a plain text `500 Internal Server Error` response (also
+  carrying the request id header) right in the middleware
+
+The latter is deliberate: if the exception were left to the standard aiohttp
+error handling, it would be logged outside of the middleware scope, where the
+`request_id` ContextVar is already reset (and the Sentry scope with the
+`request_id` tag closed) – so the traceback, usually the log message you need
+to pair with a request the most, would be the one line without the request id.
+Override `get_response_for_exception(request, exc)` to customize the error
+response (a nicer error page, JSON for API paths...).
 
 Constructor parameters (all keyword-only):
 
@@ -180,7 +199,7 @@ unlike the constructor, its `log_request_start` parameter is a bool –
 Wraps the logging record factory so that every log record gets two extra
 attributes usable in the log format:
 
-- `%(requestIdPrefix)s` – `"[req:O5bvIlU] "`, or an empty string outside of a request
+- `%(requestIdPrefix)s` – `"[req:kbyLG8d] "`, or an empty string outside of a request
 - `%(request_id)s` – the raw request id, or `None`
 
 The prefix can be customized with the `prefix_format` parameter

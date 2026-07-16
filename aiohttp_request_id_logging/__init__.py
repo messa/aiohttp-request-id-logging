@@ -19,7 +19,7 @@ Usage:
 
     basicConfig(
         level=DEBUG,
-        format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
+        format='%(asctime)s [%(threadName)s] %(name)-37s %(levelname)5s: %(requestIdPrefix)s%(message)s')
 
     setup_logging_request_id_prefix()
 
