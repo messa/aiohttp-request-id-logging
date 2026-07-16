@@ -1,6 +1,6 @@
 from asyncio import run
 from aiohttp import web
-from aiohttp.test_utils import make_mocked_request
+from aiohttp.test_utils import make_mocked_request, TestClient, TestServer
 from logging import INFO
 from pytest import raises
 import warnings
@@ -121,6 +121,29 @@ def test_middleware_reraises_http_exception_with_request_id_header():
     # the exception is also the response aiohttp sends to the client,
     # so it carries the request id header (added by after_request)
     assert excinfo.value.headers["X-Request-Id"] == request[REQUEST_ID_KEY]
+
+
+def test_middleware_reraised_http_exception_triggers_no_aiohttp_deprecation_warning():
+    # The HTTPException must be re-raised, not returned - when the handler
+    # chain returns one, aiohttp emits the "returning HTTPException object
+    # is deprecated (#2415)" DeprecationWarning. The warning comes from
+    # aiohttp web_protocol, which the tests calling the middleware directly
+    # do not exercise, so run a real server here.
+    async def not_found_handler(request):
+        raise web.HTTPNotFound()
+
+    async def scenario():
+        app = web.Application(middlewares=[request_id_middleware()])
+        app.router.add_get("/", not_found_handler)
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            async with TestClient(TestServer(app)) as client:
+                response = await client.get("/")
+                assert response.status == 404
+                assert response.headers["X-Request-Id"]
+        assert not [w for w in caught if "HTTPException" in str(w.message)]
+
+    run(scenario())
 
 
 def test_middleware_raises_when_request_id_key_already_set():
