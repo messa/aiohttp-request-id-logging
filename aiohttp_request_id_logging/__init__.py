@@ -30,6 +30,8 @@ Usage:
 
 """
 
+__version__ = "1.0.0"
+
 try:
     import sentry_sdk
 except ImportError:

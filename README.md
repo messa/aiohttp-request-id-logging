@@ -38,13 +38,15 @@ Installation
 ------------
 
 ```shell
-$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.8.zip
+$ uv add https://github.com/messa/aiohttp-request-id-logging/archive/v1.0.0.zip
+# or
+$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v1.0.0.zip
 ```
 
 Or add this line to `requirements.txt`:
 
 ```
-aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v0.0.8.zip
+aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v1.0.0.zip
 ```
 
 
@@ -286,8 +288,9 @@ on the first run.
 Version changelog
 -----------------
 
-### 1.0.0 (unreleased)
+### 1.0.0 (2026-07-16)
 
+- Added `aiohttp_request_id_logging.__version__`
 - `RequestIdContextAccessLogger` was renamed to `RequestIdAccessLogger`;
   the old name still works as a backward compatibility alias
 - The middleware was refactored into a class `RequestIdMiddleware` so that it can be
