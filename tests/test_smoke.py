@@ -9,5 +9,6 @@ def test_imported_api():
     assert aiohttp_request_id_logging.RequestIdContextAccessLogger is aiohttp_request_id_logging.RequestIdAccessLogger
     assert aiohttp_request_id_logging.RequestIdKeyAlreadySetError
     # every name declared in __all__ exists
+    # (cannot check "is not None" - FALLBACK_REQUEST_ID_KEY is None on aiohttp without web.RequestKey)
     for name in aiohttp_request_id_logging.__all__:
-        assert getattr(aiohttp_request_id_logging, name) is not None
+        assert hasattr(aiohttp_request_id_logging, name)
