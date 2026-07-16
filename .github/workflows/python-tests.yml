@@ -38,37 +38,19 @@ jobs:
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
         # 'latest' = whatever is currently on PyPI, to catch regressions
         # with new aiohttp releases early
-        aiohttp-version: ['3.7.4', '3.8.6', '3.9.5', '3.11.18', '3.14.1', 'latest']
+        # aiohttp 3.7.4 is not in the matrix: it does not run on any
+        # Python version listed here (asyncio.gather(loop=...), cgi module)
+        aiohttp-version: ['3.8.6', '3.9.5', '3.11.18', '3.14.1', 'latest']
         exclude:
-
-        - python-version: '3.10'
-          aiohttp-version: '3.7.4'
-          #   File "/opt/hostedtoolcache/Python/3.10.14/x64/lib/python3.10/site-packages/aiohttp/web.py", line 444, in _cancel_tasks
-          #     asyncio.gather(*to_cancel, loop=loop, return_exceptions=True)
-          # TypeError: gather() got an unexpected keyword argument 'loop'
-
-        - python-version: '3.11'
-          aiohttp-version: '3.7.4'
-          # Same reason as above
-
-        - python-version: '3.12'
-          aiohttp-version: '3.7.4'
-          # Same reason as above
 
         - python-version: '3.12'
           aiohttp-version: '3.8.6'
           # aiohttp/_websocket.c:3042:53: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
 
         - python-version: '3.13'
-          aiohttp-version: '3.7.4'
-          # ModuleNotFoundError: No module named 'cgi' in aiohttp/helpers.py
-        - python-version: '3.13'
           aiohttp-version: '3.8.6'
           # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
 
-        - python-version: '3.14'
-          aiohttp-version: '3.7.4'
-          # ModuleNotFoundError: No module named 'cgi' in aiohttp/helpers.py
         - python-version: '3.14'
           aiohttp-version: '3.8.6'
           # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’

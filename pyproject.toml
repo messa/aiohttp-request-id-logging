@@ -51,6 +51,11 @@ aiohttp_request_id_logging = ["py.typed"]
 [tool.ruff]
 line-length = 150
 
+[tool.ruff.lint]
+# ruff's default rule set plus E501, so that line-length is enforced
+# even on lines the formatter does not wrap (strings, comments)
+select = ["E4", "E7", "E9", "F", "E501"]
+
 [tool.ruff.lint.per-file-ignores]
 # the examples intentionally import names that are only used in comments
 # and docstrings

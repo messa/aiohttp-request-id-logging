@@ -22,7 +22,7 @@ def random_request_id_factory(length: int = 7) -> str:
 
 class SequentialRequestIdFactory:
     """
-    Alternative request id factory producing ids like "Wxyz0001", "Wxyz0002"...
+    Alternative request id factory producing ids like "Wxyz0000", "Wxyz0001"...
     - a random per-process prefix followed by a sequential number.
 
     Usage: RequestIdMiddleware(request_id_factory=sequential_request_id_factory)

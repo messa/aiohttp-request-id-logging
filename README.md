@@ -239,7 +239,7 @@ to store the id only under `REQUEST_ID_KEY`.)
   (`1`/`l`/`I`, `2`/`Z`, `O`/`0`)
   (`generate_request_id` is its backward compatibility alias)
 - `sequential_request_id_factory` / `SequentialRequestIdFactory` – alternative
-  factory producing ids like `Wxyz0001`, `Wxyz0002`… – a random per-process
+  factory producing ids like `Wxyz0000`, `Wxyz0001`… – a random per-process
   prefix followed by a sequential number
 
 Usage: `RequestIdMiddleware(request_id_factory=sequential_request_id_factory)`
@@ -272,7 +272,7 @@ management, [Ruff](https://docs.astral.sh/ruff/) for linting and formatting
 and [ty](https://docs.astral.sh/ty/) for type checking.
 
 ```shell
-$ make check      # ty check + tests (pytest)
+$ make check      # lint + ty check + tests (pytest)
 $ make lint       # ruff check + ruff format --check
 $ make lint-fix   # apply ruff fixes and formatting
 $ make typecheck  # ty check
