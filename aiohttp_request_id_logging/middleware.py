@@ -35,17 +35,21 @@ class RequestIdMiddleware:
     Constructor parameters (all keyword-only):
 
     - request_id_factory: zero-argument callable returning the request id
-      string, used by the default get_request_id implementation;
-      default: random_request_id_factory
+      string, used when get_request_id returns None (which the default
+      implementation always does); default: random_request_id_factory
+    - get_request_id: callable (request) returning the request id for the
+      given request, or None to have one generated with request_id_factory;
+      if you adopt an incoming header value here, validate it - it is
+      controlled by the client
     - log_request_start: callable (request, handler) that logs the request
-      start message; default: the log_request_start method logging
-      "Processing GET / (...)"; pass noop to disable the message
+      start message, replacing the default "Processing GET / (...)" one;
+      pass noop to disable the message
     - log_function_name: include the handler name in the default request
       start message; default: True
     - add_response_request_id_header: callable (response, req_id) that adds
-      the request id header to the response; default: the
-      add_response_request_id_header method, which keeps a header already
-      set by the handler; pass noop to disable the header
+      the request id header to the response, replacing the default behavior
+      (which keeps a header already set by the handler); pass noop to
+      disable the header
     - request_id_header_name: name of the response header with the request
       id; default: "X-Request-Id"
     - no_fallback_request_id_key: if True, store the request id only under
@@ -62,6 +66,11 @@ class RequestIdMiddleware:
     Functions stored in class attributes are tricky (Python would bind them
     as methods), that is why callables like request_id_factory are passed
     via the constructor parameters instead.
+
+    The get_request_id, log_request_start and add_response_request_id_header
+    parameters take precedence over the methods of the same name - when the
+    parameter is passed, the method (even one overridden in a subclass) is
+    not called.
 
     request_id_middleware is a backward compatibility wrapper function
     creating an instance of this class.
@@ -81,6 +90,7 @@ class RequestIdMiddleware:
         self,
         *,
         request_id_factory: Callable[[], str] | None = None,
+        get_request_id: Callable[[web.Request], str | None] | None = None,
         log_request_start: Callable[[web.Request, Handler], None] | None = None,
         log_function_name: bool | None = None,
         add_response_request_id_header: Callable[[web.StreamResponse, str], None] | None = None,
@@ -95,14 +105,16 @@ class RequestIdMiddleware:
         else:
             raise TypeError("request_id_factory must be a callable")
 
-        # Set self.log_request_start
-        # (replacing a method with a plain callable stored in an instance
-        # attribute is not expressible in the type system - hence the ignores
-        # here and at the call sites)
-        if log_request_start is not None:
-            self.log_request_start = log_request_start  # ty: ignore[invalid-assignment]
-        if not callable(self.log_request_start):
+        # Set self._get_request_id_override, used instead of the get_request_id method
+        if get_request_id is not None and not callable(get_request_id):
+            raise TypeError("get_request_id must be a callable")
+        self._get_request_id_override = get_request_id
+
+        # Set self._log_request_start_override, used instead of the
+        # log_request_start method (see before_request)
+        if log_request_start is not None and not callable(log_request_start):
             raise TypeError("log_request_start must be a callable; pass noop to disable the message")
+        self._log_request_start_override = log_request_start
 
         # Set self.log_function_name
         if log_function_name is not None:
@@ -110,11 +122,11 @@ class RequestIdMiddleware:
         if not isinstance(self.log_function_name, bool):
             raise TypeError("log_function_name must be a bool")
 
-        # Set self.add_response_request_id_header
-        if add_response_request_id_header is not None:
-            self.add_response_request_id_header = add_response_request_id_header  # ty: ignore[invalid-assignment]
-        if not callable(self.add_response_request_id_header):
+        # Set self._add_response_request_id_header_override, used instead of the
+        # add_response_request_id_header method (see after_request)
+        if add_response_request_id_header is not None and not callable(add_response_request_id_header):
             raise TypeError("add_response_request_id_header must be a callable; pass noop to disable the header")
+        self._add_response_request_id_header_override = add_response_request_id_header
 
         # Set self.request_id_header_name
         if request_id_header_name is not None:
@@ -131,11 +143,17 @@ class RequestIdMiddleware:
         """
         The middleware entrypoint - process one request.
 
-        Obtains the request id from get_request_id, sets the request_id
+        Obtains the request id from get_request_id (falling back to
+        request_id_factory when it returns None), sets the request_id
         ContextVar for the whole duration of the request processing and
         delegates the rest to before_request, call_handler and after_request.
         """
-        req_id = self.get_request_id(request)
+        if self._get_request_id_override is not None:
+            req_id = self._get_request_id_override(request)
+        else:
+            req_id = self.get_request_id(request)
+        if req_id is None:
+            req_id = self.request_id_factory()
         with ExitStack() as stack:
             # Set request id context variable as a first thing
             token = self.request_id_cv.set(req_id)
@@ -146,16 +164,20 @@ class RequestIdMiddleware:
             await self.after_request(request, handler, response, req_id, stack)
             return response
 
-    def get_request_id(self, request: web.Request) -> str:
+    def get_request_id(self, request: web.Request) -> str | None:
         """
-        Return the request id for the given request.
+        Return the request id for the given request, or None to have one
+        generated with request_id_factory.
 
-        The default implementation generates a new id using
-        request_id_factory. Override this to e.g. adopt a request id from
-        an incoming header - but validate the value, it is controlled by
-        the client (see examples/demo_customization_subclassing.py).
+        The default implementation returns None. Override this to e.g.
+        adopt a request id from an incoming header - but validate the
+        value, it is controlled by the client
+        (see examples/demo_customization_subclassing.py).
+
+        Not called when a get_request_id callable was passed to the
+        constructor - the callable is used instead (see __call__).
         """
-        return self.request_id_factory()
+        return None
 
     async def before_request(self, request: web.Request, handler: Handler, req_id: str, stack: ExitStack) -> None:
         """
@@ -168,7 +190,10 @@ class RequestIdMiddleware:
         # Sentry scope comes first so that the following log messages
         # are captured in it (as breadcrumbs).
         self.setup_sentry_scope(req_id, stack)
-        self.log_request_start(request, handler)  # ty: ignore[missing-argument, invalid-argument-type]
+        if self._log_request_start_override is not None:
+            self._log_request_start_override(request, handler)
+        else:
+            self.log_request_start(request, handler)
         self.set_request_keys(request, req_id)
 
     async def call_handler(
@@ -219,11 +244,17 @@ class RequestIdMiddleware:
         Called after the handler returns (or its exception is converted
         to a response). Adds the request id response header.
         """
-        self.add_response_request_id_header(response, req_id)  # ty: ignore[missing-argument, invalid-argument-type]
+        if self._add_response_request_id_header_override is not None:
+            self._add_response_request_id_header_override(response, req_id)
+        else:
+            self.add_response_request_id_header(response, req_id)
 
     def log_request_start(self, request: web.Request, handler: Handler) -> None:
         """
         Log the "Processing GET / (...)" message at the start of the request.
+
+        Not called when a log_request_start callable was passed to the
+        constructor - the callable is used instead (see before_request).
         """
         if self.log_function_name:
             logger.info("Processing %s %s (%s)", request.method, request.path, self.get_function_name(handler))
@@ -307,6 +338,10 @@ class RequestIdMiddleware:
           sent to the client and cannot be changed anymore; to have the
           header on streaming responses, set it in the handler before
           calling prepare().
+
+        Not called when an add_response_request_id_header callable was
+        passed to the constructor - the callable is used instead
+        (see after_request).
         """
         try:
             if response.prepared:

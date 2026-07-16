@@ -112,7 +112,8 @@ class CustomRequestIdMiddleware(RequestIdMiddleware):
         incoming = request.headers.get(self.request_id_header_name)
         if incoming and len(incoming) <= 64 and incoming.isascii() and incoming.isprintable():
             return incoming
-        return self.request_id_factory()
+        # None means: generate a new id with request_id_factory
+        return None
 
     def log_request_start(self, request, handler):
         # Replace the default "Processing GET / (...)" message.

@@ -124,16 +124,21 @@ a `request_id` tag.
 Constructor parameters (all keyword-only):
 
 - `request_id_factory` – a zero-argument callable returning the request id string,
-  used by the default `get_request_id` implementation;
-  default: `random_request_id_factory`
-- `log_request_start` – a callable `(request, handler)` that logs the
-  `Processing GET / (...)` message at the start of each request;
+  used when `get_request_id` returns `None` (which the default implementation
+  always does); default: `random_request_id_factory`
+- `get_request_id` – a callable `(request)` returning the request id for the
+  given request, or `None` to have one generated with `request_id_factory`;
+  if you adopt an incoming header value here, validate it – it is controlled
+  by the client
+- `log_request_start` – a callable `(request, handler)` that logs the request
+  start message, replacing the default `Processing GET / (...)` one;
   pass `noop` to disable the message
 - `log_function_name` – include the handler name in the default request start
   message; default: `True`
 - `add_response_request_id_header` – a callable `(response, req_id)` that adds
-  the request id header to the response; the default implementation keeps
-  a header already set by the handler; pass `noop` to disable the header
+  the request id header to the response, replacing the default behavior
+  (which keeps a header already set by the handler); pass `noop` to disable
+  the header
 - `request_id_header_name` – name of the response header with the request id;
   default: `X-Request-Id`
 - `no_fallback_request_id_key` – if `True`, the request id is stored in the request
@@ -154,10 +159,16 @@ Functions stored in class attributes are tricky (Python would bind them
 as methods), that is why callables like `request_id_factory` are passed
 via the constructor parameters instead.
 
+The `get_request_id`, `log_request_start` and `add_response_request_id_header`
+parameters take precedence over the methods of the same name – when the
+parameter is passed, the method (even one overridden in a subclass) is not
+called.
+
 The middleware does not adopt a request id sent by the client – how (and
 whether) to trust such a value depends on the deployment. If you want that,
-override `get_request_id(request)` and validate the incoming value there;
-see [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
+pass (or override) `get_request_id(request)` and validate the incoming value
+there; see
+[`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
 
 `request_id_middleware()` is a backward compatibility wrapper of this class;
 unlike the constructor, its `log_request_start` parameter is a bool –
@@ -268,10 +279,10 @@ Version changelog
   response header (a header already set by the handler is not overwritten);
   the header name can be changed with the `request_id_header_name`
   parameter, or the header disabled completely with `add_response_request_id_header=noop`
-- New overridable method `get_request_id(request)` – the hook for adopting
-  a request id from an incoming header; the default implementation generates
-  a new id with `request_id_factory` (if you override this, validate the
-  incoming value – see
+- New hook `get_request_id(request)` (a constructor parameter or an overridable
+  method) – returns the request id for the given request, e.g. adopted from
+  an incoming header, or `None` to have a new id generated with
+  `request_id_factory` (if you adopt an incoming value, validate it – see
   [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py))
 - The response request id header is silently skipped for responses that
   were already prepared (streaming/WebSocket handlers)

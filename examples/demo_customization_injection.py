@@ -89,8 +89,8 @@ def custom_log_request_start(request, handler):
     """
     Custom replacement of the default request start log message.
 
-    It is stored as a plain instance attribute, so it is called without
-    the middleware instance - just with (request, handler).
+    It is called without the middleware instance - just with
+    (request, handler).
     """
     logger.info("Started processing %s %s from %s", request.method, request.path_qs, request.remote)
 
@@ -128,6 +128,8 @@ def main():
                 # More options:
                 # log_function_name=False,  # hide the handler name in the default start message
                 # add_response_request_id_header=noop,  # do not add the response header at all
+                # get_request_id=...,  # callable (request) returning the request id,
+                #                      # or None to generate one with request_id_factory
             ),
         ]
     )

@@ -136,13 +136,20 @@ def test_middleware_get_request_id_can_adopt_incoming_header():
             incoming = request.headers.get(self.request_id_header_name)
             if incoming and len(incoming) <= 64 and incoming.isascii() and incoming.isprintable():
                 return incoming
-            return self.request_id_factory()
+            return None
 
     middleware = AdoptingRequestIdMiddleware()
     request = make_mocked_request("GET", "/", headers={"X-Request-Id": "from-proxy"})
     response = run(middleware(request, hello))
     assert request[REQUEST_ID_KEY] == "from-proxy"
     assert response.headers["X-Request-Id"] == "from-proxy"
+
+    # without the incoming header, get_request_id returns None
+    # and the id is generated with request_id_factory
+    request = make_mocked_request("GET", "/")
+    response = run(middleware(request, hello))
+    assert request[REQUEST_ID_KEY]
+    assert request[REQUEST_ID_KEY] != "from-proxy"
 
 
 def test_middleware_request_id_factory_can_be_injected():
@@ -151,6 +158,58 @@ def test_middleware_request_id_factory_can_be_injected():
     response = run(middleware(request, hello))
     assert request[REQUEST_ID_KEY] == "fixed-id"
     assert response.headers["X-Request-Id"] == "fixed-id"
+
+
+def test_middleware_get_request_id_can_be_injected():
+    middleware = RequestIdMiddleware(get_request_id=lambda request: f"id-for-{request.path.strip('/')}")
+    request = make_mocked_request("GET", "/hello")
+    response = run(middleware(request, hello))
+    assert request[REQUEST_ID_KEY] == "id-for-hello"
+    assert response.headers["X-Request-Id"] == "id-for-hello"
+
+
+def test_middleware_injected_get_request_id_returning_none_falls_back_to_factory():
+    middleware = RequestIdMiddleware(get_request_id=lambda request: None, request_id_factory=lambda: "from-factory")
+    request = make_mocked_request("GET", "/")
+    response = run(middleware(request, hello))
+    assert request[REQUEST_ID_KEY] == "from-factory"
+    assert response.headers["X-Request-Id"] == "from-factory"
+
+
+def test_middleware_log_request_start_can_be_injected(caplog):
+    calls = []
+    middleware = RequestIdMiddleware(log_request_start=lambda request, handler: calls.append((request, handler)))
+    request = make_mocked_request("GET", "/")
+    with caplog.at_level(INFO, logger="aiohttp_request_id_logging"):
+        response = run(middleware(request, hello))
+    assert response.status == 200
+    assert calls == [(request, hello)]
+    # the default message is replaced by the injected callable
+    assert not any(r.message.startswith("Processing") for r in caplog.records)
+
+
+def test_middleware_add_response_request_id_header_can_be_injected():
+    middleware = RequestIdMiddleware(add_response_request_id_header=lambda response, req_id: response.headers.update({"X-Custom-Id": req_id}))
+    request = make_mocked_request("GET", "/")
+    response = run(middleware(request, hello))
+    assert response.headers["X-Custom-Id"] == request[REQUEST_ID_KEY]
+    assert "X-Request-Id" not in response.headers
+
+
+def test_middleware_injected_callable_takes_precedence_over_subclass_method():
+    method_calls = []
+
+    class LoggingMiddleware(RequestIdMiddleware):
+        def log_request_start(self, request, handler):
+            method_calls.append(request)
+
+    injected_calls = []
+    middleware = LoggingMiddleware(log_request_start=lambda request, handler: injected_calls.append(request))
+    request = make_mocked_request("GET", "/")
+    response = run(middleware(request, hello))
+    assert response.status == 200
+    assert injected_calls == [request]
+    assert method_calls == []
 
 
 def test_add_response_request_id_header_skips_prepared_response():
@@ -163,7 +222,7 @@ def test_add_response_request_id_header_skips_prepared_response():
         headers = {}
 
     response = PreparedResponse()
-    middleware.add_response_request_id_header(response, "abc1234")  # ty: ignore[missing-argument, invalid-argument-type]
+    middleware.add_response_request_id_header(response, "abc1234")  # ty: ignore[invalid-argument-type]
     assert response.headers == {}
 
 
