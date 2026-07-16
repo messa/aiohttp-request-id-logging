@@ -405,7 +405,7 @@ Alternatives
 - [asgi-correlation-id](https://github.com/snok/asgi-correlation-id) – the
   same idea for the ASGI world (FastAPI, Starlette, Django...; aiohttp is not
   ASGI, so it cannot be used here) – correlation id middleware, a logging
-  filter and Sentry and Celery integrations
+  filter and a Sentry integration
 - [django-guid](https://github.com/snok/django-guid) – correlation id
   middleware and logging integration for Django
 - [structlog contextvars](https://www.structlog.org/en/stable/contextvars.html) –
