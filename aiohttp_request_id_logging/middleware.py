@@ -64,6 +64,7 @@ class RequestIdMiddleware:
         log_function_name: bool = None,
         add_response_request_id_header=None,
         request_id_header_name: str = None,
+        no_fallback_request_id_key: bool = False,
     ):
         # Set self.request_id_factory
         if request_id_factory is not None:
@@ -89,6 +90,9 @@ class RequestIdMiddleware:
         if request_id_header_name is not None:
             self.request_id_header_name = request_id_header_name
         assert isinstance(self.request_id_header_name, str)
+
+        if no_fallback_request_id_key:
+            self.fallback_request_id_key = None
 
         self.sentry_make_scope = self.resolve_sentry_make_scope()
 
