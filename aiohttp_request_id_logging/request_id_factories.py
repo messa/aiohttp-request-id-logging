@@ -2,15 +2,22 @@ from os import getpid
 from secrets import token_urlsafe
 
 
+_SKIP_CHARS = "1lI2ZO0"
+
+
 def random_request_id_factory(length: int = 7) -> str:
     """
     Generate a random request id - a URL-safe string of the given length.
 
     This is the default request id factory used in RequestIdMiddleware.
     """
-    req_id = token_urlsafe(length)[:length]
-    req_id = req_id.replace("_", "x").replace("-", "X")
-    return req_id
+    while True:
+        req_id = token_urlsafe(length)[:length]
+        if "_" in req_id or "-" in req_id:
+            continue
+        if any(c in _SKIP_CHARS for c in req_id):
+            continue
+        return req_id
 
 
 class SequentialRequestIdFactory:
@@ -56,7 +63,7 @@ class SequentialRequestIdFactory:
             # This is just aesthetic thing.
             if any(c.isdigit() for c in prefix):
                 continue
-            if "l" in prefix or "I" in prefix:
+            if any(c in _SKIP_CHARS for c in prefix):
                 continue
             return prefix
 
