@@ -201,8 +201,8 @@ class RequestIdMiddleware:
 
     async def before_request(self, request: web.Request, handler: Handler, req_id: str, stack: ExitStack) -> None:
         """
-        Called before the handler: set up the Sentry scope, log the request
-        start message and store the request id in the request.
+        Called before the handler: store the request id in the request,
+        set up the Sentry scope and log the request start message.
 
         The stack parameter (a contextlib.ExitStack) can be used to register
         cleanup that runs after the request is processed.
@@ -211,14 +211,18 @@ class RequestIdMiddleware:
         when overriding this method without calling super(), taking the
         parameter into account is up to you.
         """
-        # Sentry scope comes first so that the following log messages
-        # are captured in it (as breadcrumbs).
+        # Request keys come first so that the log_request_start hook can
+        # read request[REQUEST_ID_KEY], and so that a double-applied
+        # middleware raises RequestIdKeyAlreadySetError before producing
+        # any side effects (Sentry scope, log message).
+        self.set_request_keys(request, req_id)
+        # Sentry scope comes before the log message so that it is
+        # captured in the scope (as a breadcrumb).
         self.setup_sentry_scope(req_id, stack)
         if self._log_request_start_override is not None:
             self._log_request_start_override(request, handler)
         else:
             self.log_request_start(request, handler)
-        self.set_request_keys(request, req_id)
 
     def get_response_for_exception(self, request: web.Request, exc: Exception) -> web.StreamResponse:
         """

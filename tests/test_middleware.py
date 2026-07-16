@@ -233,6 +233,15 @@ def test_middleware_log_request_start_can_be_injected(caplog):
     assert not any(r.message.startswith("Processing") for r in caplog.records)
 
 
+def test_middleware_log_request_start_can_read_request_id_key():
+    seen = []
+    middleware = RequestIdMiddleware(log_request_start=lambda request, handler: seen.append(request[REQUEST_ID_KEY]))
+    request = make_mocked_request("GET", "/")
+    response = run(middleware(request, hello))
+    assert response.status == 200
+    assert seen == [request[REQUEST_ID_KEY]]
+
+
 def test_middleware_add_response_request_id_header_can_be_injected():
     middleware = RequestIdMiddleware(add_response_request_id_header=lambda response, req_id: response.headers.update({"X-Custom-Id": req_id}))
     request = make_mocked_request("GET", "/")
