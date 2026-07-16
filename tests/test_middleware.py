@@ -90,6 +90,25 @@ def test_middleware_converts_handler_exception_to_500_response(caplog):
     assert any("Error handling request" in r.message for r in caplog.records)
 
 
+def test_middleware_get_response_for_exception_can_be_overridden():
+    class JsonErrorMiddleware(RequestIdMiddleware):
+        def get_response_for_exception(self, request, exc):
+            return web.json_response({"error": str(exc), "path": request.path}, status=500)
+
+    middleware = JsonErrorMiddleware()
+    request = make_mocked_request("GET", "/api/thing")
+
+    async def failing_handler(request):
+        raise ValueError("test exception")
+
+    response = run(middleware(request, failing_handler))
+    assert isinstance(response, web.Response)
+    assert response.status == 500
+    assert response.content_type == "application/json"
+    assert response.text is not None
+    assert '"path": "/api/thing"' in response.text
+
+
 def test_middleware_returns_http_exception_as_response():
     middleware = request_id_middleware()
     request = make_mocked_request("GET", "/")
