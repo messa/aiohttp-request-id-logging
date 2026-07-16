@@ -8,7 +8,8 @@ Usage:
     from aiohttp_request_id_logging import (
         setup_logging_request_id_prefix,
         RequestIdMiddleware,
-        RequestIdContextAccessLogger)
+        RequestIdAccessLogger,
+    )
 
     routes = RouteTableDef()
 
@@ -25,7 +26,7 @@ Usage:
     app = Application(middlewares=[RequestIdMiddleware()])
     app.router.add_routes(routes)
 
-    run_app(app, access_log_class=RequestIdContextAccessLogger)
+    run_app(app, access_log_class=RequestIdAccessLogger)
 
 """
 
@@ -42,11 +43,12 @@ from .request_id_factories import (
     sequential_request_id_factory,
     SequentialRequestIdFactory,
 )
-from .logging_setup import setup_logging_request_id_prefix, RequestIdContextAccessLogger
+from .logging_setup import setup_logging_request_id_prefix, RequestIdAccessLogger
 
 
-# old name for backward compatibility
+# old names for backward compatibility
 generate_request_id = random_request_id_factory
+RequestIdContextAccessLogger = RequestIdAccessLogger
 
 
 __all__ = [
@@ -54,6 +56,7 @@ __all__ = [
     "request_id_middleware",
     "RequestIdKeyAlreadySetError",
     "setup_logging_request_id_prefix",
+    "RequestIdAccessLogger",
     "RequestIdContextAccessLogger",
     "random_request_id_factory",
     "generate_request_id",

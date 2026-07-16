@@ -36,7 +36,7 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
     logging.setLogRecordFactory(new_factory)
 
 
-class RequestIdContextAccessLogger(_AccessLogger):
+class RequestIdAccessLogger(_AccessLogger):
     """
     Subclass of aiohttp.web_log.AccessLogger that sets the request_id
     ContextVar while writing the access log line.
@@ -44,7 +44,7 @@ class RequestIdContextAccessLogger(_AccessLogger):
     Needed because aiohttp writes the access log outside of the middleware
     scope, where the ContextVar is already reset.
 
-    Usage: run_app(app, access_log_class=RequestIdContextAccessLogger)
+    Usage: run_app(app, access_log_class=RequestIdAccessLogger)
     """
 
     def log(self, request: web.BaseRequest, response: web.StreamResponse, time: float) -> None:

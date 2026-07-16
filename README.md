@@ -57,7 +57,8 @@ from aiohttp.web_log import AccessLogger
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
     RequestIdMiddleware,
-    RequestIdContextAccessLogger)
+    RequestIdAccessLogger,
+)
 
 routes = RouteTableDef()
 
@@ -74,7 +75,7 @@ setup_logging_request_id_prefix()
 app = Application(middlewares=[RequestIdMiddleware()])
 app.router.add_routes(routes)
 
-run_app(app, access_log_class=RequestIdContextAccessLogger)
+run_app(app, access_log_class=RequestIdAccessLogger)
 ```
 
 For more complete example see [examples/demo.py](examples/demo.py).
@@ -102,7 +103,7 @@ This library helps you to add request (correlation) id to the log messages in a 
 
    - so you should modify your log format, for example `logging.basicConfig(format=... %(levelname)5s: %(requestIdPrefix)s%(message)s')`
 
-3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So **`RequestIdContextAccessLogger`** is provided that adds the request_id to the access log message.
+3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So **`RequestIdAccessLogger`** is provided that adds the request_id to the access log message.
 
 4. If you use **[Sentry](https://docs.sentry.io/platforms/python/aiohttp/)**, a `request_id` [tag](https://docs.sentry.io/enriching-error-data/context/?platform=python#tagging-events) is added when the request is processed.
 
@@ -176,12 +177,12 @@ The prefix can be customized with the `prefix_format` parameter
 
 Safe to call multiple times (does the setup only once).
 
-### `RequestIdContextAccessLogger`
+### `RequestIdAccessLogger`
 
 Subclass of `aiohttp.web_log.AccessLogger` that sets the `request_id`
 ContextVar while writing the access log line. Needed because aiohttp writes
 the access log outside of the middleware scope. Pass it to
-`run_app(app, access_log_class=RequestIdContextAccessLogger)`.
+`run_app(app, access_log_class=RequestIdAccessLogger)`.
 
 ### `request_id`
 
@@ -252,6 +253,8 @@ Version changelog
 
 ### 1.0.0 (unreleased)
 
+- `RequestIdContextAccessLogger` was renamed to `RequestIdAccessLogger`;
+  the old name still works as a backward compatibility alias
 - The middleware was refactored into a class `RequestIdMiddleware` so that it can be
   subclassed and individual parts of the behavior customized by overriding class
   attributes and methods (`before_request`, `call_handler`, `after_request`,
@@ -296,7 +299,8 @@ Version changelog
   `request_id_default_length` and `default_request_id_factory` were removed
 - The Sentry `isolation_scope`/`push_scope` detection happens once when the middleware
   is created instead of on every request
-- The package was split into more modules (`middleware.py`, `errors.py`); everything is
+- The package was split into more modules (`middleware.py`, `errors.py`, `context.py`,
+  `logging_setup.py`, `request_id_factories.py`); everything is
   still importable directly from `aiohttp_request_id_logging`, which now also defines `__all__`
 - Added type hints
 - Added example [examples/demo_legacy.py](examples/demo_legacy.py) demonstrating

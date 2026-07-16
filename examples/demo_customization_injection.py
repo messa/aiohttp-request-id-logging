@@ -32,7 +32,7 @@ from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
     SequentialRequestIdFactory,
     RequestIdMiddleware,
-    RequestIdContextAccessLogger,
+    RequestIdAccessLogger,
     noop,
 )
 
@@ -138,7 +138,7 @@ def main():
 
     run_app(
         app,
-        access_log_class=RequestIdContextAccessLogger,
+        access_log_class=RequestIdAccessLogger,
         access_log_format=AccessLogger.LOG_FORMAT.replace(' %t ', ' ') + ' %Tf')
     """
 
@@ -146,7 +146,7 @@ def main():
 
 
 async def run_my_app(app, host, port):
-    runner = AppRunner(app, access_log_class=RequestIdContextAccessLogger, access_log_format=AccessLogger.LOG_FORMAT.replace(" %t ", " ") + " %Tf")
+    runner = AppRunner(app, access_log_class=RequestIdAccessLogger, access_log_format=AccessLogger.LOG_FORMAT.replace(" %t ", " ") + " %Tf")
     try:
         await runner.setup()
         site = TCPSite(runner, host, port)
