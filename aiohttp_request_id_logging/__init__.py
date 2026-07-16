@@ -1,4 +1,4 @@
-'''
+"""
 Adds a request (correlation) id to log messages in aiohttp web applications.
 
 Usage:
@@ -27,7 +27,7 @@ Usage:
 
     run_app(app, access_log_class=RequestIdContextAccessLogger)
 
-'''
+"""
 
 from os import getpid
 from aiohttp import web
@@ -46,26 +46,26 @@ from .errors import RequestIdKeyAlreadySetError
 
 
 # ContextVar that contains given request tracing id
-request_id: ContextVar[str] = ContextVar('request_id')
+request_id: ContextVar[str] = ContextVar("request_id")
 
-REQUEST_ID_KEY: 'web.RequestKey[str] | str'
+REQUEST_ID_KEY: "web.RequestKey[str] | str"
 FALLBACK_REQUEST_ID_KEY: str | None
 
 try:
     # key for storing the request id in the request; aiohttp recommends
     # web.RequestKey instances instead of plain strings
-    REQUEST_ID_KEY = web.RequestKey('request_id', str)
-    FALLBACK_REQUEST_ID_KEY = 'request_id'
+    REQUEST_ID_KEY = web.RequestKey("request_id", str)
+    FALLBACK_REQUEST_ID_KEY = "request_id"
 except AttributeError:
     # older aiohttp without web.RequestKey
-    REQUEST_ID_KEY = 'request_id'
+    REQUEST_ID_KEY = "request_id"
     FALLBACK_REQUEST_ID_KEY = None
 
 logger = logging.getLogger(__name__)
 
 
 def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") -> None:
-    '''
+    """
     Wrap logging record factory so that every log record gets two extra attributes:
 
     - record.requestIdPrefix - "[req:...] ", or an empty string outside of a request
@@ -76,9 +76,9 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
     The prefix can be customized with the prefix_format parameter.
 
     Safe to call multiple times - the setup is done only once.
-    '''
+    """
     # make sure we are doing this only once
-    if getattr(logging, 'request_id_log_record_factory_set_up', False):
+    if getattr(logging, "request_id_log_record_factory_set_up", False):
         return
     logging.request_id_log_record_factory_set_up = True
 
@@ -88,14 +88,14 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
         record = old_factory(*args, **kwargs)
         req_id = request_id.get(None)
         record.request_id = req_id
-        record.requestIdPrefix = prefix_format.format(request_id=req_id) if req_id else ''
+        record.requestIdPrefix = prefix_format.format(request_id=req_id) if req_id else ""
         return record
 
     logging.setLogRecordFactory(new_factory)
 
 
-class RequestIdContextAccessLogger (_AccessLogger):
-    '''
+class RequestIdContextAccessLogger(_AccessLogger):
+    """
     Subclass of aiohttp.web_log.AccessLogger that sets the request_id
     ContextVar while writing the access log line.
 
@@ -103,7 +103,7 @@ class RequestIdContextAccessLogger (_AccessLogger):
     scope, where the ContextVar is already reset.
 
     Usage: run_app(app, access_log_class=RequestIdContextAccessLogger)
-    '''
+    """
 
     def log(self, request: web.BaseRequest, response: web.StreamResponse, time: float) -> None:
         try:
@@ -123,13 +123,13 @@ class RequestIdContextAccessLogger (_AccessLogger):
 
 
 def random_request_id_factory(length: int = 7) -> str:
-    '''
+    """
     Generate a random request id - a URL-safe string of the given length.
 
     This is the default request id factory used in RequestIdMiddleware.
-    '''
+    """
     req_id = token_urlsafe(length)[:length]
-    req_id = req_id.replace('_', 'x').replace('-', 'X')
+    req_id = req_id.replace("_", "x").replace("-", "X")
     return req_id
 
 
@@ -138,7 +138,7 @@ generate_request_id = random_request_id_factory
 
 
 class SequentialRequestIdFactory:
-    '''
+    """
     Alternative request id factory producing ids like "Wxyz0001", "Wxyz0002"...
     - a random per-process prefix followed by a sequential number.
 
@@ -151,7 +151,7 @@ class SequentialRequestIdFactory:
     response header by default - pass add_response_request_id_header=noop
     to disable that. If the exposure is a concern, use the default
     random_request_id_factory instead.
-    '''
+    """
 
     prefix_length: int = 4
 
@@ -168,19 +168,19 @@ class SequentialRequestIdFactory:
             self._pid = pid
         value = self._next_value
         self._next_value += 1
-        return f'{self._prefix}{value:04}'
+        return f"{self._prefix}{value:04}"
 
     @classmethod
     def _generate_prefix(cls) -> str:
         while True:
-            prefix = token_urlsafe(cls.prefix_length)[:cls.prefix_length]
-            if '_' in prefix or '-' in prefix:
+            prefix = token_urlsafe(cls.prefix_length)[: cls.prefix_length]
+            if "_" in prefix or "-" in prefix:
                 continue
             # Let's not have any numbers in the prefix so we keep more focus on the appended request number.
             # This is just aesthetic thing.
             if any(c.isdigit() for c in prefix):
                 continue
-            if 'l' in prefix or 'I' in prefix:
+            if "l" in prefix or "I" in prefix:
                 continue
             return prefix
 

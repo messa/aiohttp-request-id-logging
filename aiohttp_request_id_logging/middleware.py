@@ -17,7 +17,7 @@ logger = getLogger(__name__)
 
 
 class RequestIdMiddleware:
-    '''
+    """
     aiohttp middleware that generates a request id for every request,
     stores it in the request_id ContextVar and in the request
     (request[REQUEST_ID_KEY]), adds an X-Request-Id response header,
@@ -54,7 +54,7 @@ class RequestIdMiddleware:
 
     request_id_middleware is a backward compatibility wrapper function
     creating an instance of this class.
-    '''
+    """
 
     __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
 
@@ -80,31 +80,31 @@ class RequestIdMiddleware:
         if request_id_factory is not None:
             self.request_id_factory = request_id_factory
         if not callable(self.request_id_factory):
-            raise TypeError('request_id_factory must be a callable')
+            raise TypeError("request_id_factory must be a callable")
 
         # Set self.log_request_start
         if log_request_start is not None:
             self.log_request_start = log_request_start
         if not callable(self.log_request_start):
-            raise TypeError('log_request_start must be a callable; pass noop to disable the message')
+            raise TypeError("log_request_start must be a callable; pass noop to disable the message")
 
         # Set self.log_function_name
         if log_function_name is not None:
             self.log_function_name = log_function_name
         if not isinstance(self.log_function_name, bool):
-            raise TypeError('log_function_name must be a bool')
+            raise TypeError("log_function_name must be a bool")
 
         # Set self.add_response_request_id_header
         if add_response_request_id_header is not None:
             self.add_response_request_id_header = add_response_request_id_header
         if not callable(self.add_response_request_id_header):
-            raise TypeError('add_response_request_id_header must be a callable; pass noop to disable the header')
+            raise TypeError("add_response_request_id_header must be a callable; pass noop to disable the header")
 
         # Set self.request_id_header_name
         if request_id_header_name is not None:
             self.request_id_header_name = request_id_header_name
         if not isinstance(self.request_id_header_name, str):
-            raise TypeError('request_id_header_name must be a str')
+            raise TypeError("request_id_header_name must be a str")
 
         if no_fallback_request_id_key:
             self.fallback_request_id_key = None
@@ -156,7 +156,11 @@ class RequestIdMiddleware:
         self.set_request_keys(request, req_id)
 
     async def call_handler(
-        self, request: web.Request, handler: Handler, req_id: str, stack: ExitStack,
+        self,
+        request: web.Request,
+        handler: Handler,
+        req_id: str,
+        stack: ExitStack,
     ) -> web.StreamResponse:
         """
         Call handler and return response.
@@ -166,7 +170,7 @@ class RequestIdMiddleware:
         try:
             response = await handler(request)
         except CancelledError as e:
-            logger.info('(Cancelled)')
+            logger.info("(Cancelled)")
             raise e
         except HTTPException as e:
             response = e
@@ -188,7 +192,12 @@ class RequestIdMiddleware:
         return response
 
     async def after_request(
-        self, request: web.Request, handler: Handler, response: web.StreamResponse, req_id: str, stack: ExitStack,
+        self,
+        request: web.Request,
+        handler: Handler,
+        response: web.StreamResponse,
+        req_id: str,
+        stack: ExitStack,
     ) -> None:
         """
         Called after the handler returns (or its exception is converted
@@ -201,9 +210,9 @@ class RequestIdMiddleware:
         Log the "Processing GET / (...)" message at the start of the request.
         """
         if self.log_function_name:
-            logger.info('Processing %s %s (%s)', request.method, request.path, self.get_function_name(handler))
+            logger.info("Processing %s %s (%s)", request.method, request.path, self.get_function_name(handler))
         else:
-            logger.info('Processing %s %s', request.method, request.path)
+            logger.info("Processing %s %s", request.method, request.path)
 
     def set_request_keys(self, request: web.Request, req_id: str) -> None:
         """
@@ -216,7 +225,7 @@ class RequestIdMiddleware:
         if self.fallback_request_id_key is not None:
             assert self.fallback_request_id_key != self.request_id_key
             with warnings.catch_warnings():
-                warnings.simplefilter('ignore', getattr(web, 'NotAppKeyWarning', UserWarning))
+                warnings.simplefilter("ignore", getattr(web, "NotAppKeyWarning", UserWarning))
 
                 if self.fallback_request_id_key in request:
                     raise RequestIdKeyAlreadySetError(request[self.fallback_request_id_key])
@@ -236,6 +245,7 @@ class RequestIdMiddleware:
         # a replaced aiohttp_request_id_logging.sentry_sdk (e.g. monkeypatched
         # in tests) is taken into account.
         from . import sentry_sdk
+
         if sentry_sdk is None:
             return None
         try:
@@ -263,7 +273,7 @@ class RequestIdMiddleware:
         """
         if self.sentry_make_scope is not None:
             scope = stack.enter_context(self.sentry_make_scope())
-            scope.set_tag('request_id', req_id)
+            scope.set_tag("request_id", req_id)
 
     def add_response_request_id_header(self, response: web.StreamResponse, req_id: str) -> None:
         """
@@ -298,7 +308,7 @@ class RequestIdMiddleware:
         Return a human-readable handler name for the request start message.
         """
         try:
-            return f'{f.__module__}:{f.__name__}'
+            return f"{f.__module__}:{f.__name__}"
         except Exception:
             return str(f)
 
@@ -316,11 +326,11 @@ def request_id_middleware(
     here - log_request_start=False translates to log_request_start=noop.
     """
     if request_id_factory is not None and not callable(request_id_factory):
-        raise TypeError('request_id_factory must be a callable')
+        raise TypeError("request_id_factory must be a callable")
     if not isinstance(log_function_name, bool):
-        raise TypeError('log_function_name must be a bool')
+        raise TypeError("log_function_name must be a bool")
     if not isinstance(log_request_start, bool):
-        raise TypeError('log_request_start must be a bool here; the RequestIdMiddleware constructor takes a callable')
+        raise TypeError("log_request_start must be a bool here; the RequestIdMiddleware constructor takes a callable")
     return RequestIdMiddleware(
         request_id_factory=request_id_factory,
         log_function_name=log_function_name,
