@@ -180,6 +180,10 @@ class RequestIdMiddleware:
 
         The stack parameter (a contextlib.ExitStack) can be used to register
         cleanup that runs after the request is processed.
+
+        This is where the log_request_start constructor parameter is applied -
+        when overriding this method without calling super(), taking the
+        parameter into account is up to you.
         """
         # Sentry scope comes first so that the following log messages
         # are captured in it (as breadcrumbs).
@@ -240,6 +244,10 @@ class RequestIdMiddleware:
         """
         Called after the handler returns (or its exception is converted
         to a response). Adds the request id response header.
+
+        This is where the add_response_request_id_header constructor
+        parameter is applied - when overriding this method without calling
+        super(), taking the parameter into account is up to you.
         """
         if self._add_response_request_id_header_override is not None:
             self._add_response_request_id_header_override(response, req_id)

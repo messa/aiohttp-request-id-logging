@@ -208,6 +208,10 @@ versions that support it, otherwise the plain string `'request_id'`.
 for backward compatibility; pass `RequestIdMiddleware(no_fallback_request_id_key=True)`
 to store the id only under `REQUEST_ID_KEY`.)
 
+`FALLBACK_REQUEST_ID_KEY` is that backward compatibility plain string key –
+`'request_id'`, or `None` on aiohttp versions without `web.RequestKey`
+(there `REQUEST_ID_KEY` itself is the plain string, so there is no fallback).
+
 ### Request id factories
 
 - `random_request_id_factory(length=7)` – the default; returns a random URL-safe

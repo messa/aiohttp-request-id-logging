@@ -8,6 +8,9 @@ Shown here:
 - log_request_start: log a custom request start message
 - request_id_header_name: return the request id in a custom response header
 
+More options (get_request_id, add_response_request_id_header,
+log_function_name) are listed in a comment next to the used ones below.
+
 For customization via subclassing see demo_customization_subclassing.py.
 
 Run this file and try:
