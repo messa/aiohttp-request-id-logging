@@ -146,8 +146,11 @@ class SequentialRequestIdFactory:
 
     Caveat: if the request ids are ever exposed to clients (response header,
     error page...), sequential ids reveal how many requests the server
-    processes and how many server processes there are. If that is a concern,
-    use the default random_request_id_factory instead.
+    processes and how many server processes there are. Note that
+    RequestIdMiddleware sends the request id to clients in the X-Request-Id
+    response header by default - pass add_response_request_id_header=noop
+    to disable that. If the exposure is a concern, use the default
+    random_request_id_factory instead.
     '''
 
     prefix_length: int = 4

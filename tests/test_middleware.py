@@ -96,6 +96,24 @@ def test_middleware_raises_when_request_id_key_already_set():
     assert excinfo.value.existing_request_id == 'alreadyset'
 
 
+def test_middleware_adds_response_request_id_header():
+    middleware = request_id_middleware()
+    request = make_mocked_request('GET', '/')
+    response = run(middleware(request, hello))
+    assert response.headers['X-Request-Id'] == request[REQUEST_ID_KEY]
+
+
+def test_middleware_does_not_overwrite_request_id_header_set_by_handler():
+    middleware = request_id_middleware()
+    request = make_mocked_request('GET', '/')
+
+    async def handler_with_own_header(request):
+        return web.Response(text='ok', headers={'X-Request-Id': 'from-handler'})
+
+    response = run(middleware(request, handler_with_own_header))
+    assert response.headers['X-Request-Id'] == 'from-handler'
+
+
 def test_middleware_raises_when_legacy_string_key_already_set():
     middleware = request_id_middleware()
     request = make_mocked_request('GET', '/')

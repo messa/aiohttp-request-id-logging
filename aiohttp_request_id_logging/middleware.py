@@ -35,7 +35,8 @@ class RequestIdMiddleware:
       start message; default: True
     - add_response_request_id_header: callable (response, req_id) that adds
       the request id header to the response; default: the
-      add_response_request_id_header method; pass noop to disable the header
+      add_response_request_id_header method, which keeps a header already
+      set by the handler; pass noop to disable the header
     - request_id_header_name: name of the response header with the request
       id; default: "X-Request-Id"
 
@@ -52,7 +53,7 @@ class RequestIdMiddleware:
 
     __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
 
-    # Default values - can be overriden when subclassing
+    # Default values - can be overridden when subclassing
     request_id_factory: Callable[[], str] = staticmethod(random_request_id_factory)
     request_id_header_name: str = "X-Request-Id"
     log_function_name: bool = True
@@ -73,27 +74,32 @@ class RequestIdMiddleware:
         # Set self.request_id_factory
         if request_id_factory is not None:
             self.request_id_factory = request_id_factory
-        assert callable(self.request_id_factory)
+        if not callable(self.request_id_factory):
+            raise TypeError('request_id_factory must be a callable')
 
         # Set self.log_request_start
         if log_request_start is not None:
             self.log_request_start = log_request_start
-        assert callable(self.log_request_start)
+        if not callable(self.log_request_start):
+            raise TypeError('log_request_start must be a callable; pass noop to disable the message')
 
         # Set self.log_function_name
         if log_function_name is not None:
             self.log_function_name = log_function_name
-        assert isinstance(self.log_function_name, bool)
+        if not isinstance(self.log_function_name, bool):
+            raise TypeError('log_function_name must be a bool')
 
         # Set self.add_response_request_id_header
         if add_response_request_id_header is not None:
             self.add_response_request_id_header = add_response_request_id_header
-        assert callable(self.add_response_request_id_header)
+        if not callable(self.add_response_request_id_header):
+            raise TypeError('add_response_request_id_header must be a callable; pass noop to disable the header')
 
         # Set self.request_id_header_name
         if request_id_header_name is not None:
             self.request_id_header_name = request_id_header_name
-        assert isinstance(self.request_id_header_name, str)
+        if not isinstance(self.request_id_header_name, str):
+            raise TypeError('request_id_header_name must be a str')
 
         if no_fallback_request_id_key:
             self.fallback_request_id_key = None
@@ -245,9 +251,14 @@ class RequestIdMiddleware:
 
     def add_response_request_id_header(self, response: web.StreamResponse, req_id: str) -> None:
         """
-        Add X-Request-Id to the response headers
+        Add the request id response header (named by request_id_header_name).
+
+        If the response already contains the header - for example the handler
+        echoes the request id of an upstream proxy - it is left unchanged.
         """
         try:
+            if self.request_id_header_name in response.headers:
+                return
             response.headers[self.request_id_header_name] = req_id
         except Exception as e:
             # Let's consider this response header non critical
@@ -276,9 +287,12 @@ def request_id_middleware(
     Unlike the RequestIdMiddleware constructor, log_request_start is a bool
     here - log_request_start=False translates to log_request_start=noop.
     """
-    assert callable(request_id_factory) or request_id_factory is None
-    assert isinstance(log_function_name, bool)
-    assert isinstance(log_request_start, bool)
+    if request_id_factory is not None and not callable(request_id_factory):
+        raise TypeError('request_id_factory must be a callable')
+    if not isinstance(log_function_name, bool):
+        raise TypeError('log_function_name must be a bool')
+    if not isinstance(log_request_start, bool):
+        raise TypeError('log_request_start must be a bool here; the RequestIdMiddleware constructor takes a callable')
     return RequestIdMiddleware(
         request_id_factory=request_id_factory,
         log_function_name=log_function_name,

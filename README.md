@@ -131,7 +131,8 @@ Constructor parameters (all keyword-only):
 - `log_function_name` – include the handler name in the default request start
   message; default: `True`
 - `add_response_request_id_header` – a callable `(response, req_id)` that adds
-  the request id header to the response; pass `noop` to disable the header
+  the request id header to the response; the default implementation keeps
+  a header already set by the handler; pass `noop` to disable the header
 - `request_id_header_name` – name of the response header with the request id;
   default: `X-Request-Id`
 
@@ -196,8 +197,10 @@ Usage: `RequestIdMiddleware(request_id_factory=sequential_request_id_factory)`
 
 Caveat: if the request ids are ever exposed to clients (response header,
 error page…), sequential ids reveal how many requests the server processes
-and how many server processes there are. If that is a concern, stick with
-the default random factory.
+and how many server processes there are. Note that the middleware sends the
+request id in the `X-Request-Id` response header by default – pass
+`add_response_request_id_header=noop` to disable that. If the exposure is
+a concern, stick with the default random factory.
 
 ### `noop`
 
@@ -228,7 +231,8 @@ Version changelog
     [`examples/demo_customization_injection.py`](examples/demo_customization_injection.py) and
     [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py)
 - The middleware now returns the request id to the client in the `X-Request-Id`
-  response header; the header name can be changed with the `request_id_header_name`
+  response header (a header already set by the handler is not overwritten);
+  the header name can be changed with the `request_id_header_name`
   parameter, or the header disabled completely with `add_response_request_id_header=noop`
 - The request start message ("Processing ...") can be disabled
   (`request_id_middleware(log_request_start=False)`,
