@@ -27,7 +27,8 @@ class RequestIdMiddleware:
     Constructor parameters (all keyword-only):
 
     - request_id_factory: zero-argument callable returning the request id
-      string; default: random_request_id_factory
+      string, used by the default get_request_id implementation;
+      default: random_request_id_factory
     - log_request_start: callable (request, handler) that logs the request
       start message; default: the log_request_start method logging
       "Processing GET / (...)"; pass noop to disable the message
@@ -44,13 +45,15 @@ class RequestIdMiddleware:
       key request['request_id'] (sets the fallback_request_id_key attribute
       to None); default: False
 
-    Each parameter overrides the method or class attribute of the same name.
     The behavior can also be customized by subclassing - overriding the class
-    attributes (request_id_factory, request_id_header_name, log_function_name)
-    or the methods: get_request_id, before_request, call_handler,
-    after_request, get_response_for_exception, log_request_start,
-    set_request_keys, setup_sentry_scope, add_response_request_id_header,
-    get_function_name.
+    attributes (request_id_header_name, log_function_name) or the methods:
+    get_request_id, before_request, call_handler, after_request,
+    get_response_for_exception, log_request_start, set_request_keys,
+    setup_sentry_scope, add_response_request_id_header, get_function_name.
+
+    Functions stored in class attributes are tricky (Python would bind them
+    as methods), that is why callables like request_id_factory are passed
+    via the constructor parameters instead.
 
     request_id_middleware is a backward compatibility wrapper function
     creating an instance of this class.
@@ -59,7 +62,7 @@ class RequestIdMiddleware:
     __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
 
     # Default values - can be overridden when subclassing
-    request_id_factory: Callable[[], str] = staticmethod(random_request_id_factory)
+    # (plain values only - a function here would be bound as a method)
     request_id_header_name: str = "X-Request-Id"
     log_function_name: bool = True
     request_id_key = REQUEST_ID_KEY
@@ -77,9 +80,11 @@ class RequestIdMiddleware:
         no_fallback_request_id_key: bool = False,
     ):
         # Set self.request_id_factory
-        if request_id_factory is not None:
+        if request_id_factory is None:
+            self.request_id_factory = random_request_id_factory
+        elif callable(request_id_factory):
             self.request_id_factory = request_id_factory
-        if not callable(self.request_id_factory):
+        else:
             raise TypeError("request_id_factory must be a callable")
 
         # Set self.log_request_start
@@ -216,7 +221,9 @@ class RequestIdMiddleware:
 
     def set_request_keys(self, request: web.Request, req_id: str) -> None:
         """
-        Set request["request_id"] - both str and AppKey keys
+        Store the request id in the request - under REQUEST_ID_KEY and,
+        unless disabled (no_fallback_request_id_key=True), also under
+        the backward compatibility plain string key request['request_id'].
         """
         if self.request_id_key in request:
             raise RequestIdKeyAlreadySetError(request[self.request_id_key])

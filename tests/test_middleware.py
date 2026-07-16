@@ -145,6 +145,14 @@ def test_middleware_get_request_id_can_adopt_incoming_header():
     assert response.headers["X-Request-Id"] == "from-proxy"
 
 
+def test_middleware_request_id_factory_can_be_injected():
+    middleware = RequestIdMiddleware(request_id_factory=lambda: "fixed-id")
+    request = make_mocked_request("GET", "/")
+    response = run(middleware(request, hello))
+    assert request[REQUEST_ID_KEY] == "fixed-id"
+    assert response.headers["X-Request-Id"] == "fixed-id"
+
+
 def test_add_response_request_id_header_skips_prepared_response():
     # A prepared response (streaming/WebSocket) already sent its headers
     # to the client, so the middleware must not pretend to add the header.

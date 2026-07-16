@@ -1,3 +1,14 @@
+"""
+Demonstrates the backward compatible request_id_middleware() usage -
+the wrapper function kept for applications written against the pre-1.0
+API. New code should use the RequestIdMiddleware class directly
+(see demo.py).
+
+Run this file and try:
+
+    curl -i http://localhost:8080/
+"""
+
 from aiohttp.web import Response, RouteTableDef, Application, run_app, AppRunner, TCPSite
 from aiohttp.web_log import AccessLogger
 from argparse import ArgumentParser

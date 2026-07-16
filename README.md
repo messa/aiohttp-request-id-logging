@@ -95,7 +95,7 @@ This library helps you to add request (correlation) id to the log messages in a 
 
    - store it in a ContextVar `aiohttp_request_id_logging.request_id`
    - store it also in the request storage: `request[aiohttp_request_id_logging.REQUEST_ID_KEY]`
-     (and also under the plain string key `request['request_id']` for backward compatibility)
+     (and, by default, also under the plain string key `request['request_id']` for backward compatibility)
    - return it to the client in the `X-Request-Id` response header
 
 2. **`setup_logging_request_id_prefix()`:** Modify logging record factory so that the `request_id` is attached to every logging record created
@@ -123,7 +123,8 @@ a `request_id` tag.
 
 Constructor parameters (all keyword-only):
 
-- `request_id_factory` – a zero-argument callable returning the request id string;
+- `request_id_factory` – a zero-argument callable returning the request id string,
+  used by the default `get_request_id` implementation;
   default: `random_request_id_factory`
 - `log_request_start` – a callable `(request, handler)` that logs the
   `Processing GET / (...)` message at the start of each request;
@@ -139,22 +140,24 @@ Constructor parameters (all keyword-only):
   only under `REQUEST_ID_KEY`, not also under the backward compatibility plain
   string key `request['request_id']`; default: `False`
 
-Each parameter overrides the method or class attribute of the same name.
 The behavior can also be customized by subclassing – overriding the class
-attributes (`request_id_factory`, `request_id_header_name`, `log_function_name`)
-or the methods: `get_request_id`, `before_request`, `call_handler`,
-`after_request`, `get_response_for_exception`, `log_request_start`,
-`set_request_keys`, `setup_sentry_scope`, `add_response_request_id_header`,
-`get_function_name`.
+attributes (`request_id_header_name`, `log_function_name`) or the methods:
+`get_request_id`, `before_request`, `call_handler`, `after_request`,
+`get_response_for_exception`, `log_request_start`, `set_request_keys`,
+`setup_sentry_scope`, `add_response_request_id_header`, `get_function_name`.
+
+Both approaches are demonstrated in
+[`examples/demo_customization_injection.py`](examples/demo_customization_injection.py) and
+[`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
+
+Functions stored in class attributes are tricky (Python would bind them
+as methods), that is why callables like `request_id_factory` are passed
+via the constructor parameters instead.
 
 The middleware does not adopt a request id sent by the client – how (and
 whether) to trust such a value depends on the deployment. If you want that,
 override `get_request_id(request)` and validate the incoming value there;
 see [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
-
-Both approaches are demonstrated in
-[`examples/demo_customization_injection.py`](examples/demo_customization_injection.py) and
-[`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
 
 `request_id_middleware()` is a backward compatibility wrapper of this class;
 unlike the constructor, its `log_request_start` parameter is a bool –
@@ -245,7 +248,7 @@ on the first run.
 Version changelog
 -----------------
 
-### 0.0.9 (unreleased)
+### 1.0.0 (unreleased)
 
 - The middleware was refactored into a class `RequestIdMiddleware` so that it can be
   subclassed and individual parts of the behavior customized by overriding class

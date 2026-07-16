@@ -4,8 +4,9 @@ subclassing it and overriding class attributes and methods.
 
 Shown here:
 
-- request_id_factory, request_id_header_name: defaults overridden
-  by class attributes
+- request_id_header_name: default overridden by a class attribute
+- request_id_factory: default changed in __init__ - sequential ids
+  instead of random ones
 - get_request_id: adopt the request id from an incoming header
   (with validation - the value is controlled by the client)
 - log_request_start: custom request start message
@@ -95,12 +96,14 @@ class CustomRequestIdMiddleware(RequestIdMiddleware):
     and customized behavior (overridden methods).
     """
 
-    # Generate ids like "Wxyz0001", "Wxyz0002"... instead of random ones.
-    request_id_factory = SequentialRequestIdFactory()
-
     # Return the request id to the client in a custom response header
     # (the default is X-Request-Id).
     request_id_header_name = "X-Demo-Request-Id"
+
+    def __init__(self, **kwargs):
+        # Generate ids like "Wxyz0001", "Wxyz0002"... instead of random ones.
+        kwargs.setdefault("request_id_factory", SequentialRequestIdFactory())
+        super().__init__(**kwargs)
 
     def get_request_id(self, request):
         # Adopt the request id sent by an upstream proxy, if present.
