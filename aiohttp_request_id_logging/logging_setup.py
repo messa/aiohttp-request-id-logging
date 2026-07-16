@@ -17,7 +17,9 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
 
     The prefix can be customized with the prefix_format parameter.
 
-    Safe to call multiple times - the setup is done only once.
+    Safe to call multiple times - the setup is done only once; subsequent
+    calls do nothing, even when called with a different prefix_format
+    (the format from the first call stays in effect).
     """
     # make sure we are doing this only once
     if getattr(logging, "request_id_log_record_factory_set_up", False):
@@ -28,7 +30,7 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
 
     def new_factory(*args, **kwargs):
         record = old_factory(*args, **kwargs)
-        req_id = request_id.get(None)
+        req_id = request_id.get()
         record.request_id = req_id
         record.requestIdPrefix = prefix_format.format(request_id=req_id) if req_id else ""
         return record

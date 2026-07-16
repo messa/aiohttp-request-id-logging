@@ -53,6 +53,7 @@ Usage
 
 ```python
 from aiohttp.web import Application, Response, RouteTableDef, run_app
+from logging import DEBUG, basicConfig
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
     RequestIdMiddleware,
@@ -65,8 +66,8 @@ routes = RouteTableDef()
 async def hello(request):
     return Response(text="Hello, world!\n")
 
-logging.basicConfig(
-    level=logging.DEBUG,
+basicConfig(
+    level=DEBUG,
     format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
 
 setup_logging_request_id_prefix()
@@ -197,7 +198,7 @@ the access log outside of the middleware scope. Pass it to
 ### `request_id`
 
 `ContextVar` holding the request id of the currently processed request.
-Read it with `request_id.get(None)`.
+Read it with `request_id.get()` – it returns `None` outside of a request.
 
 ### `REQUEST_ID_KEY`
 
@@ -309,6 +310,9 @@ Version changelog
   instead of being re-raised, so middlewares outside of this one will not see the exception
 - New parameter `setup_logging_request_id_prefix(prefix_format=...)` customizes the log
   record prefix (default: `"[req:{request_id}] "`)
+- The `request_id` ContextVar now has a default of `None`, so it can be read
+  with just `request_id.get()` – no more `LookupError` (or the `request_id.get(None)`
+  workaround) outside of a request
 - `random_request_id_factory()` has a new `length` parameter; the module-level variables
   `request_id_default_length` and `default_request_id_factory` were removed
 - The Sentry `isolation_scope`/`push_scope` detection happens once when the middleware
@@ -316,7 +320,8 @@ Version changelog
 - The package was split into more modules (`middleware.py`, `errors.py`, `context.py`,
   `logging_setup.py`, `request_id_factories.py`); everything is
   still importable directly from `aiohttp_request_id_logging`, which now also defines `__all__`
-- Added type hints
+- Added type hints, together with the `py.typed` marker so that the types
+  are visible to type checkers (mypy, pyright) in projects using this library
 - Added example [examples/demo_legacy.py](examples/demo_legacy.py) demonstrating
   the backward compatible `request_id_middleware()` usage
 - Tests: every example in [examples/](examples/) is now run and checked
@@ -330,8 +335,12 @@ Version changelog
 - Development: added type checking with [ty](https://docs.astral.sh/ty/)
   (`make typecheck`, also run in CI); `sentry-sdk` was added to the dev
   dependencies so that the Sentry integration is type checked too
+- Packaging: modernized the pyproject metadata – SPDX license expression
+  (`license = "MIT"`), added the Development Status, Framework and
+  Typing :: Typed classifiers
 - Github Actions: lint runs in a separate job; uv is used to install Python
-  and the dependencies
+  and the dependencies; the test matrix also includes the latest aiohttp
+  release (unpinned) to catch regressions with new aiohttp versions early
 
 ### 0.0.8 (2026-07-14)
 
@@ -387,7 +396,30 @@ Version changelog
 Alternatives
 ------------
 
-- TODO: find other solutions to this problem, perhaps also from different frameworks or platforms
+- [belvaio-request-id](https://pypi.org/project/belvaio-request-id/) – another
+  request id middleware + access logger for aiohttp; it also adopts the id
+  from the incoming `X-Request-Id` header and attaches it to log records via
+  a logging filter (instead of the log record factory used here); last
+  released in 2021 and its source repository is no longer available
+- [asgi-correlation-id](https://github.com/snok/asgi-correlation-id) – the
+  same idea for the ASGI world (FastAPI, Starlette, Django...; aiohttp is not
+  ASGI, so it cannot be used here) – correlation id middleware, a logging
+  filter and Sentry and Celery integrations
+- [django-guid](https://github.com/snok/django-guid) – correlation id
+  middleware and logging integration for Django
+- [structlog contextvars](https://www.structlog.org/en/stable/contextvars.html) –
+  if you log via structlog, you can bind a request id to the context-local
+  context yourself (`structlog.contextvars.bind_contextvars(request_id=...)`)
+  in a small custom middleware
+- [aiotask-context](https://github.com/Skyscanner/aiotask-context) – stores
+  contextual data (e.g. a request id) directly in the asyncio task and
+  includes an aiohttp request id logging example; predates `contextvars`,
+  its last release was in 2020 and the repository is now archived
+- [OpenTelemetry Python](https://opentelemetry.io/docs/languages/python/) –
+  the heavyweight solution: full distributed tracing with an aiohttp server
+  instrumentation, and the logging instrumentation can optionally inject
+  `otelTraceID`/`otelSpanID` into log records (using the same log record
+  factory technique as this library)
 
 
 Links

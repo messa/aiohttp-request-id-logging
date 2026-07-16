@@ -4,6 +4,7 @@ Adds a request (correlation) id to log messages in aiohttp web applications.
 Usage:
 
     from aiohttp.web import Application, Response, RouteTableDef, run_app
+    from logging import DEBUG, basicConfig
     from aiohttp_request_id_logging import (
         setup_logging_request_id_prefix,
         RequestIdMiddleware,
@@ -16,8 +17,8 @@ Usage:
     async def hello(request):
         return Response(text="Hello, world!")
 
-    logging.basicConfig(
-        level=logging.DEBUG,
+    basicConfig(
+        level=DEBUG,
         format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
 
     setup_logging_request_id_prefix()

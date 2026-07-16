@@ -6,8 +6,9 @@ from contextvars import ContextVar
 from aiohttp import web
 
 
-# ContextVar that contains given request tracing id
-request_id: ContextVar[str] = ContextVar("request_id")
+# ContextVar that contains given request tracing id,
+# or None outside of a request
+request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 REQUEST_ID_KEY: "web.RequestKey[str] | str"
 FALLBACK_REQUEST_ID_KEY: str | None
