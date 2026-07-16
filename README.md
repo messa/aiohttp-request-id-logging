@@ -56,7 +56,7 @@ from aiohttp.web import Application, Response, RouteTableDef, run_app
 from aiohttp.web_log import AccessLogger
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
-    request_id_middleware,
+    RequestIdMiddleware,
     RequestIdContextAccessLogger)
 
 routes = RouteTableDef()
@@ -71,7 +71,7 @@ logging.basicConfig(
 
 setup_logging_request_id_prefix()
 
-app = Application(middlewares=[request_id_middleware()])
+app = Application(middlewares=[RequestIdMiddleware()])
 app.router.add_routes(routes)
 
 run_app(app, access_log_class=RequestIdContextAccessLogger)
@@ -79,19 +79,26 @@ run_app(app, access_log_class=RequestIdContextAccessLogger)
 
 For more complete example see [examples/demo.py](examples/demo.py).
 
+Customization of the middleware behavior is demonstrated in
+[`examples/demo_customization_injection.py`](examples/demo_customization_injection.py)
+(constructor parameters) and
+[`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py)
+(subclassing).
+
 
 How it works
 ------------
 
 This library helps you to add request (correlation) id to the log messages in a few steps:
 
-1. **`request_id_middleware()`:** Generate random `request_id` for each aiohttp request and
+1. **`RequestIdMiddleware`:** Generate random `request_id` for each aiohttp request and
 
    - store it in a ContextVar `aiohttp_request_id_logging.request_id`
    - store it also in the request storage: `request[aiohttp_request_id_logging.REQUEST_ID_KEY]`
      (and also under the plain string key `request['request_id']` for backward compatibility)
+   - return it to the client in the `X-Request-Id` response header
 
-2. **`setup_logging_request_id_prefix()`:** Modify logging record factory so that the request_id is attached to every logging record created
+2. **`setup_logging_request_id_prefix()`:** Modify logging record factory so that the `request_id` is attached to every logging record created
 
    - so you should modify your log format, for example `logging.basicConfig(format=... %(levelname)5s: %(requestIdPrefix)s%(message)s')`
 
@@ -110,23 +117,38 @@ All names are importable directly from the `aiohttp_request_id_logging` package.
 ### `RequestIdMiddleware`
 
 The aiohttp middleware. Generates a request id for every request, stores it
-in the `request_id` ContextVar and in the request, and (if Sentry is installed)
-creates a Sentry scope with a `request_id` tag.
+in the `request_id` ContextVar and in the request, adds an `X-Request-Id`
+response header, and (if Sentry is installed) creates a Sentry scope with
+a `request_id` tag.
 
 Constructor parameters (all keyword-only):
 
 - `request_id_factory` – a zero-argument callable returning the request id string;
   default: `random_request_id_factory`
-- `log_request_start` – log the `Processing GET / (...)` message at the start
-  of each request; default: `True`
-- `log_function_name` – include the handler name in the request start message;
-  default: `True`
+- `log_request_start` – a callable `(request, handler)` that logs the
+  `Processing GET / (...)` message at the start of each request;
+  pass `noop` to disable the message
+- `log_function_name` – include the handler name in the default request start
+  message; default: `True`
+- `add_response_request_id_header` – a callable `(response, req_id)` that adds
+  the request id header to the response; pass `noop` to disable the header
+- `request_id_header_name` – name of the response header with the request id;
+  default: `X-Request-Id`
 
-The behavior can be customized by subclassing and overriding methods:
-`before_request`, `call_handler`, `after_request`, `log_request_start_message`,
-`set_request_keys`, `setup_sentry_scope`, `get_function_name`.
+Each parameter overrides the method or class attribute of the same name.
+The behavior can also be customized by subclassing – overriding the class
+attributes (`request_id_factory`, `request_id_header_name`, `log_function_name`)
+or the methods: `before_request`, `call_handler`, `after_request`,
+`get_response_for_exception`, `log_request_start`, `set_request_keys`,
+`setup_sentry_scope`, `add_response_request_id_header`, `get_function_name`.
 
-`request_id_middleware` is a backward compatibility alias of this class.
+Both approaches are demonstrated in
+[`examples/demo_customization_injection.py`](examples/demo_customization_injection.py) and
+[`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
+
+`request_id_middleware()` is a backward compatibility wrapper of this class;
+unlike the constructor, its `log_request_start` parameter is a bool –
+`log_request_start=False` translates to `log_request_start=noop`.
 
 ### `setup_logging_request_id_prefix()`
 
@@ -135,6 +157,9 @@ attributes usable in the log format:
 
 - `%(requestIdPrefix)s` – `"[req:O5bvIlU] "`, or an empty string outside of a request
 - `%(request_id)s` – the raw request id, or `None`
+
+The prefix can be customized with the `prefix_format` parameter
+(default: `"[req:{request_id}] "`).
 
 Safe to call multiple times (does the setup only once).
 
@@ -160,10 +185,9 @@ for backward compatibility.)
 
 ### Request id factories
 
-- `random_request_id_factory()` – the default; returns a random URL-safe string
+- `random_request_id_factory(length=7)` – the default; returns a random URL-safe
+  string of the given length
   (`generate_request_id` is its backward compatibility alias)
-- `request_id_default_length` – module-level variable with the length of the
-  generated random id; default: 7
 - `sequential_request_id_factory` / `SequentialRequestIdFactory` – alternative
   factory producing ids like `Wxyz0001`, `Wxyz0002`… – a random per-process
   prefix followed by a sequential number
@@ -174,6 +198,12 @@ Caveat: if the request ids are ever exposed to clients (response header,
 error page…), sequential ids reveal how many requests the server processes
 and how many server processes there are. If that is a concern, stick with
 the default random factory.
+
+### `noop`
+
+A do-nothing function. Pass it as the `log_request_start` or
+`add_response_request_id_header` constructor parameter to disable
+the corresponding default behavior.
 
 ### `RequestIdKeyAlreadySetError`
 
@@ -187,24 +217,46 @@ Version changelog
 
 ### 0.0.9 (unreleased)
 
-- New parameter `request_id_middleware(log_request_start=False)` disables logging
-  of the "Processing ..." message at the start of each request
+- The middleware was refactored into a class `RequestIdMiddleware` so that it can be
+  subclassed and individual parts of the behavior customized by overriding class
+  attributes and methods (`before_request`, `call_handler`, `after_request`,
+  `log_request_start`, `set_request_keys`, `setup_sentry_scope`,
+  `add_response_request_id_header`...)
+  - `request_id_middleware()` is kept as a backward compatibility wrapper function
+  - the deprecated-in-aiohttp-4 `@web.middleware` decorator is no longer used
+  - see the new examples
+    [`examples/demo_customization_injection.py`](examples/demo_customization_injection.py) and
+    [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py)
+- The middleware now returns the request id to the client in the `X-Request-Id`
+  response header; the header name can be changed with the `request_id_header_name`
+  parameter, or the header disabled completely with `add_response_request_id_header=noop`
+- The request start message ("Processing ...") can be disabled
+  (`request_id_middleware(log_request_start=False)`,
+  `RequestIdMiddleware(log_request_start=noop)`) or replaced with a custom callable
+  (`RequestIdMiddleware(log_request_start=my_log_function)`)
+- New helper function `noop` — pass it as the `log_request_start` or
+  `add_response_request_id_header` parameter to disable the corresponding default behavior
+- The middleware now raises `RequestIdKeyAlreadySetError` when the request
+  already contains a request id, for example when the middleware is applied twice
+  or something else also sets the request id
 - All `request_id_middleware()` parameters are now keyword-only; positional calls
   like `request_id_middleware(my_factory)` raise `TypeError` — use
   `request_id_middleware(request_id_factory=my_factory)` instead
-- `request_id_middleware()` now raises `RequestIdKeyAlreadySetError` when the request
-  already contains a request id, for example when the middleware is applied twice
-  or something else also sets the request id
-- The middleware was refactored into a class `RequestIdMiddleware` so that it can be
-  subclassed and individual parts of the behavior customized by overriding methods
-  (`before_request`, `call_handler`, `after_request`, `log_request_start_message`,
-  `set_request_keys`, `setup_sentry_scope`...)
-  - `request_id_middleware` is kept as a backward compatibility alias
-  - the deprecated-in-aiohttp-4 `@web.middleware` decorator is no longer used
 - Behavior change: `HTTPException` raised from a handler is now returned as the response
   instead of being re-raised, so middlewares outside of this one will not see the exception
+- New parameter `setup_logging_request_id_prefix(prefix_format=...)` customizes the log
+  record prefix (default: `"[req:{request_id}] "`)
+- `random_request_id_factory()` has a new `length` parameter; the module-level variables
+  `request_id_default_length` and `default_request_id_factory` were removed
 - The Sentry `isolation_scope`/`push_scope` detection happens once when the middleware
   is created instead of on every request
+- The package was split into more modules (`middleware.py`, `errors.py`); everything is
+  still importable directly from `aiohttp_request_id_logging`, which now also defines `__all__`
+- Added example [examples/demo_legacy.py](examples/demo_legacy.py) demonstrating
+  the backward compatible `request_id_middleware()` usage
+- Tests: every example in [examples/](examples/) is now run and checked
+  (the request id in the response header, the log line prefixes, clean stderr);
+  added tests for the HTTPException and 500 error handling
 
 ### 0.0.8 (2026-07-14)
 

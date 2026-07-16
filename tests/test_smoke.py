@@ -9,7 +9,25 @@ def test_imported_api():
 
 
 def test_generate_request_id(monkeypatch):
-    assert aiohttp_request_id_logging.request_id_default_length == 7
     assert len(aiohttp_request_id_logging.generate_request_id()) == 7
-    monkeypatch.setattr(aiohttp_request_id_logging, 'request_id_default_length', 9)
-    assert len(aiohttp_request_id_logging.generate_request_id()) == 9
+    assert len(aiohttp_request_id_logging.generate_request_id(9)) == 9
+
+
+def test_setting_default_values():
+
+    class C:
+
+        x = 10
+
+        def __init__(self, x=None):
+            self.x = x or self.x
+
+    assert C().x == 10
+    assert C(20).x == 20
+
+    class D(C):
+
+        x = 30
+
+    assert D().x == 30
+    assert D(20).x == 20

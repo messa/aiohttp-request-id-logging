@@ -61,6 +61,30 @@ def test_middleware_log_request_start_can_be_disabled(caplog):
     assert not any(r.message.startswith('Processing') for r in caplog.records)
 
 
+def test_middleware_converts_handler_exception_to_500_response(caplog):
+    middleware = request_id_middleware()
+    request = make_mocked_request('GET', '/')
+
+    async def failing_handler(request):
+        raise ValueError('test exception')
+
+    with caplog.at_level(INFO, logger='aiohttp_request_id_logging'):
+        response = run(middleware(request, failing_handler))
+    assert response.status == 500
+    assert any('Error handling request' in r.message for r in caplog.records)
+
+
+def test_middleware_returns_http_exception_as_response():
+    middleware = request_id_middleware()
+    request = make_mocked_request('GET', '/')
+
+    async def not_found_handler(request):
+        raise web.HTTPNotFound()
+
+    response = run(middleware(request, not_found_handler))
+    assert response.status == 404
+
+
 def test_middleware_raises_when_request_id_key_already_set():
     middleware = request_id_middleware()
     request = make_mocked_request('GET', '/')

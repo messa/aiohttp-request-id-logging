@@ -1,21 +1,12 @@
+from aiohttp import web
+from aiohttp.web_exceptions import HTTPException
 from asyncio import CancelledError
 from contextlib import ExitStack
 from logging import getLogger
 import warnings
 
-from aiohttp import web
-from aiohttp.web_exceptions import HTTPException
-
+from . import random_request_id_factory, REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY, request_id, noop
 from .errors import RequestIdKeyAlreadySetError
-
-# These names live in the package __init__ (tests monkeypatch e.g. sentry_sdk
-# there); this works because __init__ imports this module as its last statement.
-from . import (
-    request_id,
-    REQUEST_ID_KEY,
-    default_request_id_factory,
-    _resolve_sentry_make_scope,
-)
 
 
 logger = getLogger(__name__)
@@ -25,41 +16,81 @@ class RequestIdMiddleware:
     '''
     aiohttp middleware that generates a request id for every request,
     stores it in the request_id ContextVar and in the request
-    (request[REQUEST_ID_KEY]), and - if sentry_sdk is installed - creates
-    a Sentry scope with a request_id tag.
+    (request[REQUEST_ID_KEY]), adds an X-Request-Id response header,
+    and - if sentry_sdk is installed - creates a Sentry scope with
+    a request_id tag.
 
     Constructor parameters (all keyword-only):
 
     - request_id_factory: zero-argument callable returning the request id
       string; default: random_request_id_factory
-    - log_request_start: log the "Processing GET / (...)" message at the
-      start of each request; default: True
-    - log_function_name: include the handler name in the request start
-      message; default: True
+    - log_request_start: callable (request, handler) that logs the request
+      start message; default: the log_request_start method logging
+      "Processing GET / (...)"; pass noop to disable the message
+    - log_function_name: include the handler name in the default request
+      start message; default: True
+    - add_response_request_id_header: callable (response, req_id) that adds
+      the request id header to the response; default: the
+      add_response_request_id_header method; pass noop to disable the header
+    - request_id_header_name: name of the response header with the request
+      id; default: "X-Request-Id"
 
-    The behavior can be customized by subclassing and overriding methods:
-    before_request, call_handler, after_request, log_request_start_message,
-    set_request_keys, setup_sentry_scope, get_function_name.
+    Each parameter overrides the method or class attribute of the same name.
+    The behavior can also be customized by subclassing - overriding the class
+    attributes (request_id_factory, request_id_header_name, log_function_name)
+    or the methods: before_request, call_handler, after_request,
+    get_response_for_exception, log_request_start, set_request_keys,
+    setup_sentry_scope, add_response_request_id_header, get_function_name.
 
-    request_id_middleware is a backward compatibility alias of this class.
+    request_id_middleware is a backward compatibility wrapper function
+    creating an instance of this class.
     '''
 
     __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
+
+    # Default values - can be overriden when subclassing
+    request_id_factory = staticmethod(random_request_id_factory)
+    request_id_header_name = "X-Request-Id"
+    log_function_name = True
+    request_id_key = REQUEST_ID_KEY
+    fallback_request_id_key = FALLBACK_REQUEST_ID_KEY
+    request_id_cv = request_id
 
     def __init__(
         self,
         *,
         request_id_factory=None,
-        log_request_start=True,
-        log_function_name=True,
+        log_request_start=None,
+        log_function_name: bool = None,
+        add_response_request_id_header=None,
+        request_id_header_name: str = None,
     ):
-        assert isinstance(log_request_start, bool)
-        assert isinstance(log_function_name, bool)
-        self.request_id_factory = request_id_factory or default_request_id_factory
-        self.log_request_start = log_request_start
-        self.log_function_name = log_function_name
-        self.request_id_cv = request_id
-        self.sentry_make_scope = _resolve_sentry_make_scope()
+        # Set self.request_id_factory
+        if request_id_factory is not None:
+            self.request_id_factory = request_id_factory
+        assert callable(self.request_id_factory)
+
+        # Set self.log_request_start
+        if log_request_start is not None:
+            self.log_request_start = log_request_start
+        assert callable(self.log_request_start)
+
+        # Set self.log_function_name
+        if log_function_name is not None:
+            self.log_function_name = log_function_name
+        assert isinstance(self.log_function_name, bool)
+
+        # Set self.add_response_request_id_header
+        if add_response_request_id_header is not None:
+            self.add_response_request_id_header = add_response_request_id_header
+        assert callable(self.add_response_request_id_header)
+
+        # Set self.request_id_header_name
+        if request_id_header_name is not None:
+            self.request_id_header_name = request_id_header_name
+        assert isinstance(self.request_id_header_name, str)
+
+        self.sentry_make_scope = self.resolve_sentry_make_scope()
 
     async def __call__(self, request, handler):
         """
@@ -91,8 +122,7 @@ class RequestIdMiddleware:
         # Sentry scope comes first so that the following log messages
         # are captured in it (as breadcrumbs).
         self.setup_sentry_scope(req_id, stack)
-        if self.log_request_start:
-            self.log_request_start_message(request, handler)
+        self.log_request_start(request, handler)
         self.set_request_keys(request, req_id)
 
     async def call_handler(self, request, handler, req_id, stack):
@@ -114,20 +144,25 @@ class RequestIdMiddleware:
             # contextvar scope.
             # (And also outside the sentry scope, if sentry is enabled.)
             logger.exception("Error handling request: %r", e)
-            response = web.Response(
-                status=500,
-                text="500 Internal Server Error\n")
-            response.force_close()
+            response = self.get_response_for_exception(e)
+        return response
+
+    def get_response_for_exception(self, exc):
+        """
+        Create the 500 response for an unhandled exception from the handler.
+        """
+        response = web.Response(status=500, text="500 Internal Server Error\n")
+        response.force_close()
         return response
 
     async def after_request(self, request, handler, response, req_id, stack):
         """
         Called after the handler returns (or its exception is converted
-        to a response). Does nothing by default - a hook for subclasses.
+        to a response). Adds the request id response header.
         """
-        pass
+        self.add_response_request_id_header(response, req_id)
 
-    def log_request_start_message(self, request, handler):
+    def log_request_start(self, request, handler):
         """
         Log the "Processing GET / (...)" message at the start of the request.
         """
@@ -140,20 +175,50 @@ class RequestIdMiddleware:
         """
         Set request["request_id"] - both str and AppKey keys
         """
-        if REQUEST_ID_KEY in request:
-            raise RequestIdKeyAlreadySetError(request[REQUEST_ID_KEY])
-        request[REQUEST_ID_KEY] = req_id
-        if type(REQUEST_ID_KEY) is not str:
-            # Store the request id also under the plain string key for
-            # backward compatibility with code reading request['request_id'].
-            # aiohttp 3.13/3.14 emits NotAppKeyWarning for str keys
-            # (the warning is being removed again in aiohttp master),
-            # so silence it here.
+        if self.request_id_key in request:
+            raise RequestIdKeyAlreadySetError(request[self.request_id_key])
+        request[self.request_id_key] = req_id
+
+        if self.fallback_request_id_key is not None:
+            assert self.fallback_request_id_key != self.request_id_key
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore', getattr(web, 'NotAppKeyWarning', UserWarning))
-                if "request_id" in request:
-                    raise RequestIdKeyAlreadySetError(request["request_id"])
-                request['request_id'] = req_id
+
+                if self.fallback_request_id_key in request:
+                    raise RequestIdKeyAlreadySetError(request[self.fallback_request_id_key])
+                request[self.fallback_request_id_key] = req_id
+
+    @staticmethod
+    def resolve_sentry_make_scope():
+        """
+        Find the function for creating a new Sentry scope, or return None
+        if sentry_sdk is not installed (or provides no such function).
+
+        For compatibility with sentry_sdk 1.x and 2.x:
+        push_scope is deprecated and will be removed, isolation_scope is its
+        recommended replacement for the request-response cycle.
+        """
+        # Read sentry_sdk from the package at call time so that
+        # a replaced aiohttp_request_id_logging.sentry_sdk (e.g. monkeypatched
+        # in tests) is taken into account.
+        from . import sentry_sdk
+        if sentry_sdk is None:
+            return None
+        try:
+            return sentry_sdk.isolation_scope
+        except AttributeError:
+            pass
+        try:
+            return sentry_sdk.push_scope
+        except AttributeError:
+            warnings.warn(
+                "sentry_sdk does not contain isolation_scope or push_scope. "
+                "This is most likely due to a version change to >2.x, "
+                "please consult the Sentry documentation on how to fix this. "
+                "The `request_id` tag will not be pushed to Sentry.",
+                UserWarning,
+            )
+            return None
 
     def setup_sentry_scope(self, req_id, stack):
         """
@@ -166,6 +231,16 @@ class RequestIdMiddleware:
             scope = stack.enter_context(self.sentry_make_scope())
             scope.set_tag('request_id', req_id)
 
+    def add_response_request_id_header(self, response, req_id):
+        """
+        Add X-Request-Id to the response headers
+        """
+        try:
+            response.headers[self.request_id_header_name] = req_id
+        except Exception as e:
+            # Let's consider this response header non critical
+            logger.debug("Could not set response.headers[%r]: %r", self.request_id_header_name, e)
+
     @staticmethod
     def get_function_name(f):
         """
@@ -177,6 +252,18 @@ class RequestIdMiddleware:
             return str(f)
 
 
-# old name for backward compatibility - request_id_middleware() used to be
-# a factory function returning the middleware
-request_id_middleware = RequestIdMiddleware
+def request_id_middleware(*, request_id_factory=None, log_function_name=True, log_request_start=True):
+    """
+    Backward compatibility function for creating a RequestIdMiddleware instance.
+
+    Unlike the RequestIdMiddleware constructor, log_request_start is a bool
+    here - log_request_start=False translates to log_request_start=noop.
+    """
+    assert callable(request_id_factory) or request_id_factory is None
+    assert isinstance(log_function_name, bool)
+    assert isinstance(log_request_start, bool)
+    return RequestIdMiddleware(
+        request_id_factory=request_id_factory,
+        log_function_name=log_function_name,
+        log_request_start=None if log_request_start else noop,
+    )

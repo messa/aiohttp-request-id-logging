@@ -1,3 +1,20 @@
+'''
+Demonstrates how to customize the RequestIdMiddleware behavior by passing
+parameters to its constructor - no subclassing needed.
+
+Shown here:
+
+- request_id_factory: generate sequential request ids instead of random ones
+- log_request_start: log a custom request start message
+- request_id_header_name: return the request id in a custom response header
+
+For customization via subclassing see demo_customization_subclassing.py.
+
+Run this file and try:
+
+    curl -i http://localhost:8080/
+'''
+
 from aiohttp.web import Response, RouteTableDef, Application, run_app, AppRunner, TCPSite
 from aiohttp.web_log import AccessLogger
 from argparse import ArgumentParser
@@ -13,8 +30,10 @@ except ImportError:
 
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
+    SequentialRequestIdFactory,
     RequestIdMiddleware,
-    RequestIdContextAccessLogger)
+    RequestIdContextAccessLogger,
+    noop)
 
 
 LOG_FORMAT = '%(asctime)s [%(threadName)s] %(name)-37s %(levelname)5s: %(requestIdPrefix)s%(message)s'
@@ -65,6 +84,16 @@ async def log_error(request):
     return Response(text="Hello, world!\n")
 
 
+def custom_log_request_start(request, handler):
+    '''
+    Custom replacement of the default request start log message.
+
+    It is stored as a plain instance attribute, so it is called without
+    the middleware instance - just with (request, handler).
+    '''
+    logger.info('Started processing %s %s from %s', request.method, request.path_qs, request.remote)
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('--host', type=str, default='localhost', help='Host to listen on')
@@ -87,7 +116,19 @@ def main():
 
     app = Application(
         middlewares=[
-            RequestIdMiddleware(),
+            RequestIdMiddleware(
+                # Generate ids like "Wxyz0001", "Wxyz0002"... instead of random ones.
+                request_id_factory=SequentialRequestIdFactory(),
+                # Replace the default "Processing GET / (...)" message.
+                # Pass noop to disable the message completely.
+                log_request_start=custom_log_request_start,
+                # Return the request id to the client in a custom response header
+                # (the default is X-Request-Id).
+                request_id_header_name='X-Demo-Request-Id',
+                # More options:
+                # log_function_name=False,  # hide the handler name in the default start message
+                # add_response_request_id_header=noop,  # do not add the response header at all
+            ),
         ])
     app.router.add_routes(routes)
 

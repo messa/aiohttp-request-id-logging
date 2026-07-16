@@ -1,7 +1,32 @@
 '''
 Adds a request (correlation) id to log messages in aiohttp web applications.
 
-See README.md for usage and reference documentation.
+Usage:
+
+    from aiohttp.web import Application, Response, RouteTableDef, run_app
+    from aiohttp.web_log import AccessLogger
+    from aiohttp_request_id_logging import (
+        setup_logging_request_id_prefix,
+        RequestIdMiddleware,
+        RequestIdContextAccessLogger)
+
+    routes = RouteTableDef()
+
+    @routes.get('/')
+    async def hello(request):
+        return Response(text="Hello, world!")
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s [%(threadName)s] %(name)-26s %(levelname)5s: %(requestIdPrefix)s%(message)s')
+
+    setup_logging_request_id_prefix()
+
+    app = Application(middlewares=[RequestIdMiddleware()])
+    app.router.add_routes(routes)
+
+    run_app(app, access_log_class=RequestIdContextAccessLogger)
+
 '''
 
 from os import getpid
@@ -9,7 +34,6 @@ from aiohttp import web
 from aiohttp.web_log import AccessLogger as _AccessLogger
 from contextvars import ContextVar
 import logging
-import warnings
 from secrets import token_urlsafe
 
 try:
@@ -17,26 +41,26 @@ try:
 except ImportError:
     sentry_sdk = None
 
-from .errors import RequestIdKeyAlreadySetError  # noqa: F401
+from .errors import RequestIdKeyAlreadySetError
 
 
-# contextvar that contains given request tracing id
+# ContextVar that contains given request tracing id
 request_id = ContextVar('request_id')
 
 try:
     # key for storing the request id in the request; aiohttp recommends
     # web.RequestKey instances instead of plain strings
     REQUEST_ID_KEY = web.RequestKey('request_id', str)
+    FALLBACK_REQUEST_ID_KEY = 'request_id'
 except AttributeError:
     # older aiohttp without web.RequestKey
     REQUEST_ID_KEY = 'request_id'
-
-request_id_default_length = 7
+    FALLBACK_REQUEST_ID_KEY = None
 
 logger = logging.getLogger(__name__)
 
 
-def setup_logging_request_id_prefix():
+def setup_logging_request_id_prefix(prefix_format="[req:{request_id}] "):
     '''
     Wrap logging record factory so that every log record gets two extra attributes:
 
@@ -44,6 +68,8 @@ def setup_logging_request_id_prefix():
     - record.request_id - the raw request id, or None
 
     You can then use them in log format as "%(requestIdPrefix)s" or "%(request_id)s".
+
+    The prefix can be customized with the prefix_format parameter.
 
     Safe to call multiple times - the setup is done only once.
     '''
@@ -58,7 +84,7 @@ def setup_logging_request_id_prefix():
         record = old_factory(*args, **kwargs)
         req_id = request_id.get(None)
         record.request_id = req_id
-        record.requestIdPrefix = f'[req:{req_id}] ' if req_id else ''
+        record.requestIdPrefix = prefix_format.format(request_id=req_id) if req_id else ''
         return record
 
     logging.setLogRecordFactory(new_factory)
@@ -92,14 +118,13 @@ class RequestIdContextAccessLogger (_AccessLogger):
             request_id.reset(token)
 
 
-def random_request_id_factory():
+def random_request_id_factory(length=7):
     '''
-    Generate a random request id - a URL-safe string of length
-    request_id_default_length.
+    Generate a random request id - a URL-safe string of the given length.
 
     This is the default request id factory used in RequestIdMiddleware.
     '''
-    req_id = token_urlsafe(request_id_default_length)[:request_id_default_length]
+    req_id = token_urlsafe(length)[:length]
     req_id = req_id.replace('_', 'x').replace('-', 'X')
     return req_id
 
@@ -156,37 +181,24 @@ class SequentialRequestIdFactory:
 sequential_request_id_factory = SequentialRequestIdFactory()
 
 
-default_request_id_factory = random_request_id_factory
+def noop(*args, **kwargs):
+    """
+    Pass this function as add_response_request_id_header or log_request_start to disable the default behavior.
+    """
+    pass
 
 
-def _resolve_sentry_make_scope():
-    '''
-    Find the function for creating a new Sentry scope, or return None
-    if sentry_sdk is not installed (or provides no such function).
-
-    For compatibility with sentry_sdk 1.x and 2.x:
-    push_scope is deprecated and will be removed, isolation_scope is its
-    recommended replacement for the request-response cycle.
-    '''
-    if sentry_sdk is None:
-        return None
-    try:
-        return sentry_sdk.isolation_scope
-    except AttributeError:
-        pass
-    try:
-        return sentry_sdk.push_scope
-    except AttributeError:
-        warnings.warn(
-            "sentry_sdk does not contain isolation_scope or push_scope. "
-            "This is most likely due to a version change to >2.x, "
-            "please consult the Sentry documentation on how to fix this. "
-            "The `request_id` tag will not be pushed to Sentry.",
-            UserWarning,
-        )
-        return None
+# This import must be at the end of the file because middleware.py imports back from this package.
+from .middleware import RequestIdMiddleware, request_id_middleware  # noqa: E402
 
 
-# This import must stay at the end of the file - middleware.py imports
-# names defined above from this package.
-from .middleware import RequestIdMiddleware, request_id_middleware  # noqa: E402,F401
+__all__ = [
+    "RequestIdMiddleware",
+    "request_id_middleware",
+    "RequestIdKeyAlreadySetError",
+    "setup_logging_request_id_prefix",
+    "RequestIdContextAccessLogger",
+    "random_request_id_factory",
+    "sequential_request_id_factory",
+    "noop",
+]

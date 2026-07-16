@@ -1,5 +1,10 @@
 """
-Run examples/demo.py (aiohttp server with request id logging implemented) and try to call it.
+Run every example in examples/ (aiohttp server with request id logging
+implemented) and try to call it.
+
+The examples are run one by one - each test starts the example server
+on a free port, calls it and checks the response, the response header
+with the request id and the log output.
 """
 
 from aiohttp import ClientSession
@@ -17,26 +22,79 @@ from threading import Thread
 from time import sleep
 
 
-test_port = 8080
-
 logger = getLogger(__name__)
 
 
-@fixture(scope='session')
-def demo_executable(examples_dir):
-    demo_path = examples_dir / 'demo.py'
+DemoSpec = namedtuple('DemoSpec', 'filename response_header_name expected_info_lines')
+
+# For each example: the response header carrying the request id and the
+# expected INFO log lines (regexps) produced by one GET / request.
+# Each line is expected to be prefixed with "[req:...]" with the same
+# request id that is returned in the response header.
+demo_specs = [
+    DemoSpec(
+        filename='demo.py',
+        response_header_name='X-Request-Id',
+        expected_info_lines=[
+            r"Processing GET / \(__main__:hello\)$",
+            r"Doing something$",
+            r'.*"GET /.* 200 .*$',
+        ]),
+    DemoSpec(
+        filename='demo_legacy.py',
+        response_header_name='X-Request-Id',
+        expected_info_lines=[
+            r"Processing GET / \(__main__:hello\)$",
+            r"Doing something$",
+            r'.*"GET /.* 200 .*$',
+        ]),
+    DemoSpec(
+        filename='demo_customization_injection.py',
+        response_header_name='X-Demo-Request-Id',
+        expected_info_lines=[
+            r"Started processing GET / from .+$",
+            r"Doing something$",
+            r'.*"GET /.* 200 .*$',
+        ]),
+    DemoSpec(
+        filename='demo_customization_subclassing.py',
+        response_header_name='X-Demo-Request-Id',
+        expected_info_lines=[
+            r"Started processing GET / \(handler: __main__:hello\)$",
+            r"Doing something$",
+            r"Done, response status: 200$",
+            r'.*"GET /.* 200 .*$',
+        ]),
+]
+
+
+@fixture(params=demo_specs, ids=lambda spec: spec.filename)
+def demo_spec(request):
+    return request.param
+
+
+@fixture
+def demo_path(examples_dir, demo_spec):
+    demo_path = examples_dir / demo_spec.filename
     assert demo_path.is_file()
     return demo_path
 
 
-def test_demo_help(demo_executable):
-    cmd = [python_executable, str(demo_executable), '--help']
+def test_demo_help(demo_path):
+    cmd = [python_executable, str(demo_path), '--help']
     logger.debug("Running command: %r", cmd)
     assert check_call(cmd) == 0
 
 
+def get_free_port():
+    with socket() as s:
+        s.bind(('localhost', 0))
+        return s.getsockname()[1]
+
+
 def tcp_connect_works(host, port):
     with socket() as s:
+        s.settimeout(0.1)
         try:
             s.connect((host, port))
             return True
@@ -54,17 +112,19 @@ def read_output(stream, lines, label):
         stream.close()
 
 
-RunningDemo = namedtuple('RunningDemo', 'process stdout_lines stderr_lines')
+RunningDemo = namedtuple('RunningDemo', 'process port stdout_lines stderr_lines')
 
 
 @fixture
-def run_demo(demo_executable):
+def run_demo(demo_path):
     @contextmanager
     def do_run_demo():
-        cmd = [python_executable, str(demo_executable)]
+        port = get_free_port()
+        cmd = [python_executable, str(demo_path), '--port', str(port)]
         cmd_env = {
             **environ,
             "PYTHONDEVMODE": "1",  # Enable printing of warnings, e.g. NotAppKeyWarning
+            "SKIP_SLEEP": "1",  # Make the examples run faster by skipping the demostration sleep() calls
         }
         with Popen(cmd, stdin=DEVNULL, stdout=PIPE, stderr=PIPE, env=cmd_env) as process:
             stdout_lines = []
@@ -80,12 +140,12 @@ def run_demo(demo_executable):
                 for _ in range(100):
                     sleep(0.01)
                     assert process.poll() is None
-                    if tcp_connect_works('localhost', test_port):
+                    if tcp_connect_works('localhost', port):
                         break
                 else:
                     raise RuntimeError('Server did not start')
 
-                yield RunningDemo(process, stdout_lines, stderr_lines)
+                yield RunningDemo(process, port, stdout_lines, stderr_lines)
             finally:
                 if process.poll() is not None:
                     logger.info(
@@ -105,26 +165,29 @@ def run_demo(demo_executable):
     return do_run_demo
 
 
-def test_hello_world(run_demo):
-    async def fetch():
+def test_demo_hello_world(run_demo, demo_spec):
+    async def fetch(port):
         async with ClientSession() as session:
-            async with session.get(f'http://localhost:{test_port}/') as response:
-                return await response.text()
+            async with session.get(f'http://localhost:{port}/') as response:
+                return await response.text(), response.headers.get(demo_spec.response_header_name)
 
     with run_demo() as demo:
-        text = run(fetch())
+        text, header_req_id = run(fetch(demo.port))
         assert text == 'Hello, world!\n'
+        assert header_req_id
 
     lines = [line for line in demo.stderr_lines if 'INFO' in line and " asyncio " not in line]
-    assert len(lines) == 3
-    m0 = re.match(r'.*  INFO: \[req:([a-zA-Z0-9]+)\] Processing GET / \(__main__:hello\)$', lines[0])
-    m1 = re.match(r'.*  INFO: \[req:([a-zA-Z0-9]+)\] Doing something$', lines[1])
-    m2 = re.match(r'.*  INFO: \[req:([a-zA-Z0-9]+)\] .*GET /.* 200 .*$', lines[2])
-    assert m0
-    assert m1
-    assert m2
-    assert m0.groups() == m1.groups()
-    assert m0.groups() == m2.groups()
+    assert len(lines) == 1 + len(demo_spec.expected_info_lines)
+
+    # the startup message is logged outside of any request, so it has no request id prefix
+    assert re.match(rf".*  INFO: Listening on http://localhost:{demo.port}$", lines[0])
+
+    # all the request-related lines carry the same request id
+    # and it matches the one returned in the response header
+    for line, expected in zip(lines[1:], demo_spec.expected_info_lines):
+        m = re.match(rf".*  INFO: \[req:([a-zA-Z0-9]+)\] {expected}", line)
+        assert m, f"Line does not match {expected!r}: {line!r}"
+        assert m.group(1) == header_req_id
 
     # Warnings coming from aiohttp internals that we cannot do anything about
     whitelisted_warnings = [
@@ -145,3 +208,60 @@ def test_hello_world(run_demo):
             stderr_is_clean = False
 
     assert stderr_is_clean
+
+
+def test_demo_fail(run_demo, demo_spec):
+    """
+    The /f handler raises an exception - the middleware converts it
+    to a 500 response and logs the exception with the request id prefix.
+    """
+    async def fetch(port):
+        async with ClientSession() as session:
+            async with session.get(f'http://localhost:{port}/f') as response:
+                return response.status, await response.text(), response.headers.get(demo_spec.response_header_name)
+
+    with run_demo() as demo:
+        status, text, header_req_id = run(fetch(demo.port))
+        assert status == 500
+        assert text == '500 Internal Server Error\n'
+        # the request id header is added even to the error response
+        assert header_req_id
+
+    # the exception is logged (with traceback) with the request id prefix
+    error_lines = [line for line in demo.stderr_lines if ' ERROR: ' in line]
+    assert len(error_lines) == 1
+    m = re.match(
+        r".* ERROR: \[req:([a-zA-Z0-9]+)\] Error handling request: Exception\('test exception'\)$",
+        error_lines[0])
+    assert m, f"Line does not match: {error_lines[0]!r}"
+    assert m.group(1) == header_req_id
+    assert any('Traceback (most recent call last):' in line for line in demo.stderr_lines)
+    assert any(line == 'Exception: test exception' for line in demo.stderr_lines)
+
+    # the access log line has the same request id and status 500
+    assert any(
+        re.match(rf'.*  INFO: \[req:{re.escape(header_req_id)}\] .*"GET /f.* 500 .*$', line)
+        for line in demo.stderr_lines)
+
+
+def test_demo_log_error(run_demo, demo_spec):
+    """
+    The /e handler logs an error - the error line carries the request id
+    prefix; the response is a normal 200.
+    """
+    async def fetch(port):
+        async with ClientSession() as session:
+            async with session.get(f'http://localhost:{port}/e') as response:
+                return response.status, await response.text(), response.headers.get(demo_spec.response_header_name)
+
+    with run_demo() as demo:
+        status, text, header_req_id = run(fetch(demo.port))
+        assert status == 200
+        assert text == 'Hello, world!\n'
+        assert header_req_id
+
+    error_lines = [line for line in demo.stderr_lines if ' ERROR: ' in line]
+    assert len(error_lines) == 1
+    m = re.match(r".* ERROR: \[req:([a-zA-Z0-9]+)\] test error log$", error_lines[0])
+    assert m, f"Line does not match: {error_lines[0]!r}"
+    assert m.group(1) == header_req_id

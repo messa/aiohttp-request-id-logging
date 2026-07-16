@@ -1,3 +1,22 @@
+'''
+Demonstrates how to customize the RequestIdMiddleware behavior by
+subclassing it and overriding class attributes and methods.
+
+Shown here:
+
+- request_id_factory, request_id_header_name: defaults overridden
+  by class attributes
+- log_request_start: custom request start message
+- after_request: additional behavior after the handler finishes
+
+For customization via constructor parameters (without subclassing)
+see demo_customization_injection.py.
+
+Run this file and try:
+
+    curl -i http://localhost:8080/
+'''
+
 from aiohttp.web import Response, RouteTableDef, Application, run_app, AppRunner, TCPSite
 from aiohttp.web_log import AccessLogger
 from argparse import ArgumentParser
@@ -13,6 +32,7 @@ except ImportError:
 
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
+    SequentialRequestIdFactory,
     RequestIdMiddleware,
     RequestIdContextAccessLogger)
 
@@ -65,6 +85,32 @@ async def log_error(request):
     return Response(text="Hello, world!\n")
 
 
+class CustomRequestIdMiddleware (RequestIdMiddleware):
+    '''
+    RequestIdMiddleware with customized defaults (class attributes)
+    and customized behavior (overridden methods).
+    '''
+
+    # Generate ids like "Wxyz0001", "Wxyz0002"... instead of random ones.
+    request_id_factory = SequentialRequestIdFactory()
+
+    # Return the request id to the client in a custom response header
+    # (the default is X-Request-Id).
+    request_id_header_name = 'X-Demo-Request-Id'
+
+    def log_request_start(self, request, handler):
+        # Replace the default "Processing GET / (...)" message.
+        logger.info(
+            'Started processing %s %s (handler: %s)',
+            request.method, request.path_qs, self.get_function_name(handler))
+
+    async def after_request(self, request, handler, response, req_id, stack):
+        # Keep the default behavior (adding the response header)...
+        await super().after_request(request, handler, response, req_id, stack)
+        # ...and also log the response status.
+        logger.info('Done, response status: %s', response.status)
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('--host', type=str, default='localhost', help='Host to listen on')
@@ -87,7 +133,7 @@ def main():
 
     app = Application(
         middlewares=[
-            RequestIdMiddleware(),
+            CustomRequestIdMiddleware(),
         ])
     app.router.add_routes(routes)
 
