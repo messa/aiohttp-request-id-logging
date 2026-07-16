@@ -135,6 +135,9 @@ Constructor parameters (all keyword-only):
   a header already set by the handler; pass `noop` to disable the header
 - `request_id_header_name` – name of the response header with the request id;
   default: `X-Request-Id`
+- `no_fallback_request_id_key` – if `True`, the request id is stored in the request
+  only under `REQUEST_ID_KEY`, not also under the backward compatibility plain
+  string key `request['request_id']`; default: `False`
 
 Each parameter overrides the method or class attribute of the same name.
 The behavior can also be customized by subclassing – overriding the class
@@ -187,8 +190,9 @@ Read it with `request_id.get(None)`.
 Key under which the request id is stored in the request:
 `request[REQUEST_ID_KEY]`. It is a `web.RequestKey` instance on aiohttp
 versions that support it, otherwise the plain string `'request_id'`.
-(The plain string key `request['request_id']` is always set as well,
-for backward compatibility.)
+(The plain string key `request['request_id']` is set as well by default,
+for backward compatibility; pass `RequestIdMiddleware(no_fallback_request_id_key=True)`
+to store the id only under `REQUEST_ID_KEY`.)
 
 ### Request id factories
 
@@ -256,6 +260,9 @@ Version changelog
 - The middleware now raises `RequestIdKeyAlreadySetError` when the request
   already contains a request id, for example when the middleware is applied twice
   or something else also sets the request id
+- New parameter `RequestIdMiddleware(no_fallback_request_id_key=True)` stores the
+  request id only under `REQUEST_ID_KEY`, skipping the backward compatibility
+  plain string key `request['request_id']`
 - All `request_id_middleware()` parameters are now keyword-only; positional calls
   like `request_id_middleware(my_factory)` raise `TypeError` — use
   `request_id_middleware(request_id_factory=my_factory)` instead
@@ -269,6 +276,7 @@ Version changelog
   is created instead of on every request
 - The package was split into more modules (`middleware.py`, `errors.py`); everything is
   still importable directly from `aiohttp_request_id_logging`, which now also defines `__all__`
+- Added type hints
 - Added example [examples/demo_legacy.py](examples/demo_legacy.py) demonstrating
   the backward compatible `request_id_middleware()` usage
 - Tests: every example in [examples/](examples/) is now run and checked

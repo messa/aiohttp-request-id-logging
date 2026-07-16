@@ -39,6 +39,10 @@ class RequestIdMiddleware:
       set by the handler; pass noop to disable the header
     - request_id_header_name: name of the response header with the request
       id; default: "X-Request-Id"
+    - no_fallback_request_id_key: if True, store the request id only under
+      REQUEST_ID_KEY and not under the backward compatibility plain string
+      key request['request_id'] (sets the fallback_request_id_key attribute
+      to None); default: False
 
     Each parameter overrides the method or class attribute of the same name.
     The behavior can also be customized by subclassing - overriding the class
