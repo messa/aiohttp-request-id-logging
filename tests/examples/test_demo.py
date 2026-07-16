@@ -189,16 +189,18 @@ def test_demo_hello_world(run_demo, demo_spec):
         assert m, f"Line does not match {expected!r}: {line!r}"
         assert m.group(1) == header_req_id
 
-    # Warnings coming from aiohttp internals that we cannot do anything about
+    # Warnings coming from aiohttp/asyncio internals that we cannot do anything about
     whitelisted_warnings = [
-        'DeprecationWarning: Setting custom Request._transport_sockname attribute is discouraged',
+        r'DeprecationWarning: Setting custom Request\._transport_sockname attribute is discouraged',
         # aiohttp web_urldispatcher.py on Python 3.14:
-        "DeprecationWarning: 'asyncio.iscoroutinefunction' is deprecated",
+        r"DeprecationWarning: 'asyncio\.iscoroutinefunction' is deprecated",
+        # asyncio debug mode (PYTHONDEVMODE=1) slow task/callback warning on a slow machine (CI):
+        r"asyncio\s+WARNING: Executing <(Task|Handle).* took [\d.]+ seconds",
     ]
 
     stderr_is_clean = True
     for line in demo.stderr_lines:
-        if any(w in line for w in whitelisted_warnings):
+        if any(re.search(w, line) for w in whitelisted_warnings):
             logger.info("Ignoring whitelisted warning in stderr line: %s", line)
         elif "ERROR" in line:
             logger.error("Have error in stderr line: %r", line)
