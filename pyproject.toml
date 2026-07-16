@@ -22,8 +22,8 @@ dependencies = [
   "aiohttp",
 ]
 
-[project.optional-dependencies]
-test = ["pytest", "flake8"]
+[dependency-groups]
+dev = ["pytest", "ruff"]
 
 [project.urls]
 "Homepage" = "https://github.com/messa/aiohttp-request-id-logging"
@@ -33,3 +33,14 @@ test = ["pytest", "flake8"]
 [build-system]
 requires = ["setuptools>=43.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.ruff]
+line-length = 150
+
+[tool.ruff.lint.per-file-ignores]
+# the examples intentionally import names that are only used in comments
+# and docstrings
+"examples/*" = ["F401"]
+
+[tool.ruff.format]
+quote-style = "double"

@@ -225,6 +225,23 @@ most likely the middleware is applied twice, or something else sets it too.
 The existing id is available as the `existing_request_id` attribute.
 
 
+Development
+-----------
+
+The project uses [uv](https://docs.astral.sh/uv/) for dependency and environment
+management and [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
+
+```shell
+$ make check     # run tests (pytest)
+$ make lint      # ruff check + ruff format --check
+$ make lint-fix  # apply ruff fixes and formatting
+```
+
+The Makefile targets use `uv run`, which automatically creates the `.venv`
+virtualenv and installs the dependencies (including the `dev` dependency group)
+on the first run.
+
+
 Version changelog
 -----------------
 
@@ -282,6 +299,13 @@ Version changelog
 - Tests: every example in [examples/](examples/) is now run and checked
   (the request id in the response header, the log line prefixes, clean stderr);
   added tests for the HTTPException and 500 error handling
+- Development: the project is now managed with [uv](https://docs.astral.sh/uv/)
+  (`uv.lock`, dev dependencies in the `[dependency-groups]` table, which replaced
+  the `test` extra); linting was migrated from flake8 to
+  [Ruff](https://docs.astral.sh/ruff/) and the codebase was reformatted
+  with `ruff format` (see the new `make lint` and `make lint-fix` targets)
+- Github Actions: lint runs in a separate job; uv is used to install Python
+  and the dependencies
 
 ### 0.0.8 (2026-07-14)
 
