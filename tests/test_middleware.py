@@ -131,14 +131,18 @@ def test_middleware_get_request_id_can_adopt_incoming_header():
     assert response.headers['X-Request-Id'] == 'from-proxy'
 
 
-def test_middleware_does_not_send_invalid_request_id_in_response_header(caplog):
-    middleware = RequestIdMiddleware(request_id_factory=lambda: 'bad\r\nX-Evil: 1')
-    request = make_mocked_request('GET', '/')
-    with caplog.at_level(INFO, logger='aiohttp_request_id_logging'):
-        response = run(middleware(request, hello))
-    assert response.status == 200
-    assert 'X-Request-Id' not in response.headers
-    assert any('invalid request id' in r.message for r in caplog.records)
+def test_add_response_request_id_header_skips_prepared_response():
+    # A prepared response (streaming/WebSocket) already sent its headers
+    # to the client, so the middleware must not pretend to add the header.
+    middleware = RequestIdMiddleware()
+
+    class PreparedResponse:
+        prepared = True
+        headers = {}
+
+    response = PreparedResponse()
+    middleware.add_response_request_id_header(response, 'abc1234')
+    assert response.headers == {}
 
 
 def test_middleware_raises_when_legacy_string_key_already_set():

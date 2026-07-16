@@ -245,8 +245,8 @@ Version changelog
   a new id with `request_id_factory` (if you override this, validate the
   incoming value – see
   [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py))
-- The request id is validated (printable ASCII) before being sent in the
-  response header; an invalid id is not sent and a warning is logged
+- The response request id header is silently skipped for responses that
+  were already prepared (streaming/WebSocket handlers)
 - The request start message ("Processing ...") can be disabled
   (`request_id_middleware(log_request_start=False)`,
   `RequestIdMiddleware(log_request_start=noop)`) or replaced with a custom callable

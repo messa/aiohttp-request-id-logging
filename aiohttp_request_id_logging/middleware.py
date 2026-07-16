@@ -265,10 +265,22 @@ class RequestIdMiddleware:
         """
         Add the request id response header (named by request_id_header_name).
 
-        If the response already contains the header - for example the handler
-        echoes the request id of an upstream proxy - it is left unchanged.
+        The header is silently not added (a missing response request id
+        header is not a serious problem) when:
+
+        - the response already contains the header, for example the handler
+          echoes the request id of an upstream proxy,
+        - the response was already prepared (a streaming or WebSocket
+          handler called response.prepare()) - its headers were already
+          sent to the client and cannot be changed anymore; to have the
+          header on streaming responses, set it in the handler before
+          calling prepare().
         """
         try:
+            if response.prepared:
+                # Mutating response.headers now would succeed, but the change
+                # would never reach the client.
+                return
             if self.request_id_header_name in response.headers:
                 return
             response.headers[self.request_id_header_name] = req_id
