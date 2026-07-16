@@ -57,7 +57,7 @@ class RequestIdMiddleware:
 
     The behavior can also be customized by subclassing - overriding the class
     attributes (request_id_header_name, log_function_name) or the methods:
-    get_request_id, before_request, call_handler, after_request,
+    get_request_id, before_request, after_request,
     get_response_for_exception, log_request_start, set_request_keys,
     setup_sentry_scope, add_response_request_id_header, get_function_name.
 
@@ -139,8 +139,12 @@ class RequestIdMiddleware:
 
         Obtains the request id from get_request_id (falling back to
         request_id_factory when it returns None), sets the request_id
-        ContextVar for the whole duration of the request processing and
-        delegates the rest to before_request, call_handler and after_request.
+        ContextVar for the whole duration of the request processing,
+        calls the handler between before_request and after_request,
+        and converts an unhandled exception from the handler to a 500
+        response (get_response_for_exception). A raised HTTPException
+        is re-raised for aiohttp to process - after after_request adds
+        the request id header to it.
         """
         if self._get_request_id_override is not None:
             req_id = self._get_request_id_override(request)
@@ -154,7 +158,29 @@ class RequestIdMiddleware:
             stack.callback(lambda: request_id_cv.reset(token))
 
             await self.before_request(request, handler, req_id, stack)
-            response = await self.call_handler(request, handler, req_id, stack)
+
+            try:
+                response = await handler(request)
+            except CancelledError as exc:
+                logger.info("(Cancelled)")
+                raise exc
+            except HTTPException as http_exc:
+                # HTTPException is also the response aiohttp sends to the
+                # client, so let after_request add the request id header
+                # to it before re-raising. It must be re-raised, not
+                # returned - a returned HTTPException makes aiohttp emit
+                # the "returning HTTPException object is deprecated
+                # (#2415)" DeprecationWarning.
+                await self.after_request(request, handler, http_exc, req_id, stack)
+                raise http_exc
+            except Exception as exc:
+                # We are processing the 500 error right here, because if we
+                # let the web server process it, it would be outside of the
+                # request_id contextvar scope.
+                # (And also outside the sentry scope, if sentry is enabled.)
+                logger.exception("Error handling request: %r", exc)
+                response = self.get_response_for_exception(request, exc)
+
             await self.after_request(request, handler, response, req_id, stack)
             return response
 
@@ -194,34 +220,6 @@ class RequestIdMiddleware:
             self.log_request_start(request, handler)
         self.set_request_keys(request, req_id)
 
-    async def call_handler(
-        self,
-        request: web.Request,
-        handler: Handler,
-        req_id: str,
-        stack: ExitStack,
-    ) -> web.StreamResponse:
-        """
-        Call handler and return response.
-
-        If handler raises an exception, convert it to response object.
-        """
-        try:
-            response = await handler(request)
-        except CancelledError as e:
-            logger.info("(Cancelled)")
-            raise e
-        except HTTPException as e:
-            response = e
-        except Exception as e:
-            # We are processing 500 error right here, because if we let it
-            # the web server to process, it would be outside of the request_id
-            # contextvar scope.
-            # (And also outside the sentry scope, if sentry is enabled.)
-            logger.exception("Error handling request: %r", e)
-            response = self.get_response_for_exception(request, e)
-        return response
-
     def get_response_for_exception(self, request: web.Request, exc: Exception) -> web.StreamResponse:
         """
         Create the 500 response for an unhandled exception from the handler.
@@ -242,8 +240,9 @@ class RequestIdMiddleware:
         stack: ExitStack,
     ) -> None:
         """
-        Called after the handler returns (or its exception is converted
-        to a response). Adds the request id response header.
+        Called after the handler returns - or with a raised HTTPException
+        before it is re-raised, or with the 500 response an unhandled
+        exception was converted to. Adds the request id response header.
 
         This is where the add_response_request_id_header constructor
         parameter is applied - when overriding this method without calling

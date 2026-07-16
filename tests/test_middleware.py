@@ -109,15 +109,18 @@ def test_middleware_get_response_for_exception_can_be_overridden():
     assert '"path": "/api/thing"' in response.text
 
 
-def test_middleware_returns_http_exception_as_response():
+def test_middleware_reraises_http_exception_with_request_id_header():
     middleware = request_id_middleware()
     request = make_mocked_request("GET", "/")
 
     async def not_found_handler(request):
         raise web.HTTPNotFound()
 
-    response = run(middleware(request, not_found_handler))
-    assert response.status == 404
+    with raises(web.HTTPNotFound) as excinfo:
+        run(middleware(request, not_found_handler))
+    # the exception is also the response aiohttp sends to the client,
+    # so it carries the request id header (added by after_request)
+    assert excinfo.value.headers["X-Request-Id"] == request[REQUEST_ID_KEY]
 
 
 def test_middleware_raises_when_request_id_key_already_set():

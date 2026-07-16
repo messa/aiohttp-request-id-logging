@@ -148,7 +148,7 @@ Constructor parameters (all keyword-only):
 
 The behavior can also be customized by subclassing – overriding the class
 attributes (`request_id_header_name`, `log_function_name`) or the methods:
-`get_request_id`, `before_request`, `call_handler`, `after_request`,
+`get_request_id`, `before_request`, `after_request`,
 `get_response_for_exception`, `log_request_start`, `set_request_keys`,
 `setup_sentry_scope`, `add_response_request_id_header`, `get_function_name`.
 
@@ -272,7 +272,7 @@ Version changelog
   the old name still works as a backward compatibility alias
 - The middleware was refactored into a class `RequestIdMiddleware` so that it can be
   subclassed and individual parts of the behavior customized by overriding class
-  attributes and methods (`before_request`, `call_handler`, `after_request`,
+  attributes and methods (`before_request`, `after_request`,
   `log_request_start`, `set_request_keys`, `setup_sentry_scope`,
   `add_response_request_id_header`...)
   - `request_id_middleware()` is kept as a backward compatibility wrapper function
@@ -306,8 +306,9 @@ Version changelog
 - All `request_id_middleware()` parameters are now keyword-only; positional calls
   like `request_id_middleware(my_factory)` raise `TypeError` — use
   `request_id_middleware(request_id_factory=my_factory)` instead
-- Behavior change: `HTTPException` raised from a handler is now returned as the response
-  instead of being re-raised, so middlewares outside of this one will not see the exception
+- `HTTPException` raised from a handler is re-raised as before, but the request id
+  response header is now added to it first (the exception is also the response
+  aiohttp sends to the client)
 - New parameter `setup_logging_request_id_prefix(prefix_format=...)` customizes the log
   record prefix (default: `"[req:{request_id}] "`)
 - The `request_id` ContextVar now has a default of `None`, so it can be read
