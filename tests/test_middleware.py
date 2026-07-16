@@ -9,6 +9,7 @@ from aiohttp_request_id_logging import (
     request_id_middleware,
     request_id,
     RequestIdKeyAlreadySetError,
+    RequestIdMiddleware,
     REQUEST_ID_KEY,
 )
 
@@ -112,6 +113,32 @@ def test_middleware_does_not_overwrite_request_id_header_set_by_handler():
 
     response = run(middleware(request, handler_with_own_header))
     assert response.headers['X-Request-Id'] == 'from-handler'
+
+
+def test_middleware_get_request_id_can_adopt_incoming_header():
+    class AdoptingRequestIdMiddleware(RequestIdMiddleware):
+
+        def get_request_id(self, request):
+            incoming = request.headers.get(self.request_id_header_name)
+            if incoming and len(incoming) <= 64 and incoming.isascii() and incoming.isprintable():
+                return incoming
+            return self.request_id_factory()
+
+    middleware = AdoptingRequestIdMiddleware()
+    request = make_mocked_request('GET', '/', headers={'X-Request-Id': 'from-proxy'})
+    response = run(middleware(request, hello))
+    assert request[REQUEST_ID_KEY] == 'from-proxy'
+    assert response.headers['X-Request-Id'] == 'from-proxy'
+
+
+def test_middleware_does_not_send_invalid_request_id_in_response_header(caplog):
+    middleware = RequestIdMiddleware(request_id_factory=lambda: 'bad\r\nX-Evil: 1')
+    request = make_mocked_request('GET', '/')
+    with caplog.at_level(INFO, logger='aiohttp_request_id_logging'):
+        response = run(middleware(request, hello))
+    assert response.status == 200
+    assert 'X-Request-Id' not in response.headers
+    assert any('invalid request id' in r.message for r in caplog.records)
 
 
 def test_middleware_raises_when_legacy_string_key_already_set():

@@ -43,9 +43,10 @@ class RequestIdMiddleware:
     Each parameter overrides the method or class attribute of the same name.
     The behavior can also be customized by subclassing - overriding the class
     attributes (request_id_factory, request_id_header_name, log_function_name)
-    or the methods: before_request, call_handler, after_request,
-    get_response_for_exception, log_request_start, set_request_keys,
-    setup_sentry_scope, add_response_request_id_header, get_function_name.
+    or the methods: get_request_id, before_request, call_handler,
+    after_request, get_response_for_exception, log_request_start,
+    set_request_keys, setup_sentry_scope, add_response_request_id_header,
+    get_function_name.
 
     request_id_middleware is a backward compatibility wrapper function
     creating an instance of this class.
@@ -110,11 +111,11 @@ class RequestIdMiddleware:
         """
         The middleware entrypoint - process one request.
 
-        Sets the request_id ContextVar for the whole duration of the request
-        processing and delegates the rest to before_request, call_handler
-        and after_request.
+        Obtains the request id from get_request_id, sets the request_id
+        ContextVar for the whole duration of the request processing and
+        delegates the rest to before_request, call_handler and after_request.
         """
-        req_id = self.request_id_factory()
+        req_id = self.get_request_id(request)
         with ExitStack() as stack:
             # Set request id context variable as a first thing
             token = self.request_id_cv.set(req_id)
@@ -124,6 +125,17 @@ class RequestIdMiddleware:
             response = await self.call_handler(request, handler, req_id, stack)
             await self.after_request(request, handler, response, req_id, stack)
             return response
+
+    def get_request_id(self, request: web.Request) -> str:
+        """
+        Return the request id for the given request.
+
+        The default implementation generates a new id using
+        request_id_factory. Override this to e.g. adopt a request id from
+        an incoming header - but validate the value, it is controlled by
+        the client (see examples/demo_customization_subclassing.py).
+        """
+        return self.request_id_factory()
 
     async def before_request(self, request: web.Request, handler: Handler, req_id: str, stack: ExitStack) -> None:
         """

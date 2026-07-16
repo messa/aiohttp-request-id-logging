@@ -139,9 +139,15 @@ Constructor parameters (all keyword-only):
 Each parameter overrides the method or class attribute of the same name.
 The behavior can also be customized by subclassing – overriding the class
 attributes (`request_id_factory`, `request_id_header_name`, `log_function_name`)
-or the methods: `before_request`, `call_handler`, `after_request`,
-`get_response_for_exception`, `log_request_start`, `set_request_keys`,
-`setup_sentry_scope`, `add_response_request_id_header`, `get_function_name`.
+or the methods: `get_request_id`, `before_request`, `call_handler`,
+`after_request`, `get_response_for_exception`, `log_request_start`,
+`set_request_keys`, `setup_sentry_scope`, `add_response_request_id_header`,
+`get_function_name`.
+
+The middleware does not adopt a request id sent by the client – how (and
+whether) to trust such a value depends on the deployment. If you want that,
+override `get_request_id(request)` and validate the incoming value there;
+see [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py).
 
 Both approaches are demonstrated in
 [`examples/demo_customization_injection.py`](examples/demo_customization_injection.py) and
@@ -234,6 +240,13 @@ Version changelog
   response header (a header already set by the handler is not overwritten);
   the header name can be changed with the `request_id_header_name`
   parameter, or the header disabled completely with `add_response_request_id_header=noop`
+- New overridable method `get_request_id(request)` – the hook for adopting
+  a request id from an incoming header; the default implementation generates
+  a new id with `request_id_factory` (if you override this, validate the
+  incoming value – see
+  [`examples/demo_customization_subclassing.py`](examples/demo_customization_subclassing.py))
+- The request id is validated (printable ASCII) before being sent in the
+  response header; an invalid id is not sent and a warning is logged
 - The request start message ("Processing ...") can be disabled
   (`request_id_middleware(log_request_start=False)`,
   `RequestIdMiddleware(log_request_start=noop)`) or replaced with a custom callable

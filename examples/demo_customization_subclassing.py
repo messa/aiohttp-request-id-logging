@@ -6,6 +6,8 @@ Shown here:
 
 - request_id_factory, request_id_header_name: defaults overridden
   by class attributes
+- get_request_id: adopt the request id from an incoming header
+  (with validation - the value is controlled by the client)
 - log_request_start: custom request start message
 - after_request: additional behavior after the handler finishes
 
@@ -15,6 +17,7 @@ see demo_customization_injection.py.
 Run this file and try:
 
     curl -i http://localhost:8080/
+    curl -i -H 'X-Demo-Request-Id: id-from-proxy-1234' http://localhost:8080/
 '''
 
 from aiohttp.web import Response, RouteTableDef, Application, run_app, AppRunner, TCPSite
@@ -97,6 +100,15 @@ class CustomRequestIdMiddleware (RequestIdMiddleware):
     # Return the request id to the client in a custom response header
     # (the default is X-Request-Id).
     request_id_header_name = 'X-Demo-Request-Id'
+
+    def get_request_id(self, request):
+        # Adopt the request id sent by an upstream proxy, if present.
+        # Validate it first - the value is controlled by the client and
+        # ends up in log lines and in the response header.
+        incoming = request.headers.get(self.request_id_header_name)
+        if incoming and len(incoming) <= 64 and incoming.isascii() and incoming.isprintable():
+            return incoming
+        return self.request_id_factory()
 
     def log_request_start(self, request, handler):
         # Replace the default "Processing GET / (...)" message.
