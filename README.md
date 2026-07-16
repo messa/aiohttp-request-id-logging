@@ -216,7 +216,8 @@ to store the id only under `REQUEST_ID_KEY`.)
 ### Request id factories
 
 - `random_request_id_factory(length=7)` – the default; returns a random URL-safe
-  string of the given length
+  string of the given length, avoiding visually ambiguous characters
+  (`1`/`l`/`I`, `2`/`Z`, `O`/`0`)
   (`generate_request_id` is its backward compatibility alias)
 - `sequential_request_id_factory` / `SequentialRequestIdFactory` – alternative
   factory producing ids like `Wxyz0001`, `Wxyz0002`… – a random per-process
@@ -295,29 +296,32 @@ Version changelog
   (`request_id_middleware(log_request_start=False)`,
   `RequestIdMiddleware(log_request_start=noop)`) or replaced with a custom callable
   (`RequestIdMiddleware(log_request_start=my_log_function)`)
-- New helper function `noop` — pass it as the `log_request_start` or
-  `add_response_request_id_header` parameter to disable the corresponding default behavior
 - The middleware now raises `RequestIdKeyAlreadySetError` when the request
   already contains a request id, for example when the middleware is applied twice
   or something else also sets the request id
 - New parameter `RequestIdMiddleware(no_fallback_request_id_key=True)` stores the
   request id only under `REQUEST_ID_KEY`, skipping the backward compatibility
-  plain string key `request['request_id']`
-- All `request_id_middleware()` parameters are now keyword-only; positional calls
-  like `request_id_middleware(my_factory)` raise `TypeError` — use
+  plain string key `request['request_id']` (the plain string key is now also
+  exported as `FALLBACK_REQUEST_ID_KEY`)
+- Breaking: all `request_id_middleware()` parameters are now keyword-only; positional calls
+  like `request_id_middleware(my_factory)` raise `TypeError` – use
   `request_id_middleware(request_id_factory=my_factory)` instead
 - `HTTPException` raised from a handler is re-raised as before, but the request id
   response header is now added to it first (the exception is also the response
   aiohttp sends to the client)
+- The 500 response for an unhandled exception from the handler can be customized
+  by overriding the `get_response_for_exception(request, exc)` method
 - New parameter `setup_logging_request_id_prefix(prefix_format=...)` customizes the log
   record prefix (default: `"[req:{request_id}] "`)
 - The `request_id` ContextVar now has a default of `None`, so it can be read
   with just `request_id.get()` – no more `LookupError` (or the `request_id.get(None)`
   workaround) outside of a request
-- `random_request_id_factory()` has a new `length` parameter; the module-level variables
-  `request_id_default_length` and `default_request_id_factory` were removed
-- The Sentry `isolation_scope`/`push_scope` detection happens once when the middleware
-  is created instead of on every request
+- Breaking: `random_request_id_factory()` has a new `length` parameter, replacing the
+  removed module-level variables `request_id_default_length` and
+  `default_request_id_factory`; the module-level function `get_function_name`
+  was also removed (it is now a `RequestIdMiddleware` static method)
+- Generated request ids now avoid visually ambiguous characters
+  (`1`/`l`/`I`, `2`/`Z`, `O`/`0`)
 - The package was split into more modules (`middleware.py`, `errors.py`, `context.py`,
   `logging_setup.py`, `request_id_factories.py`); everything is
   still importable directly from `aiohttp_request_id_logging`, which now also defines `__all__`
@@ -346,7 +350,7 @@ Version changelog
 ### 0.0.8 (2026-07-14)
 
 - Store the request id in the request under a `web.RequestKey` instance,
-  exported as `aiohttp_request_id_logging.REQUEST_ID_KEY` — fixes `NotAppKeyWarning`
+  exported as `aiohttp_request_id_logging.REQUEST_ID_KEY` – fixes `NotAppKeyWarning`
   emitted by aiohttp 3.13/3.14
   - the plain string key `request['request_id']` is still set for backward compatibility
 - Moved `demo.py` to [examples/](examples/)
