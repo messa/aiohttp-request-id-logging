@@ -1,4 +1,4 @@
-default: check lint
+default: check
 
 check: lint typecheck
 	uv run pytest --log-level=DEBUG --tb=short -v tests $(pytest_args)

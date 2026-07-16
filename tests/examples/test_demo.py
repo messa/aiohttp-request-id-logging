@@ -102,7 +102,7 @@ def tcp_connect_works(host, port):
         try:
             s.connect((host, port))
             return True
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, TimeoutError):
             return False
 
 

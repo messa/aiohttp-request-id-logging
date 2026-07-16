@@ -9,6 +9,9 @@ def random_request_id_factory(length: int = 7) -> str:
     """
     Generate a random request id - a URL-safe string of the given length.
 
+    Visually ambiguous characters (1/l/I, 2/Z, O/0) and the URL-safe
+    punctuation (_, -) are never used in the generated id.
+
     This is the default request id factory used in RequestIdMiddleware.
     """
     while True:
