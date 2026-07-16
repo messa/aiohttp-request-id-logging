@@ -221,12 +221,15 @@ class RequestIdMiddleware:
             # contextvar scope.
             # (And also outside the sentry scope, if sentry is enabled.)
             logger.exception("Error handling request: %r", e)
-            response = self.get_response_for_exception(e)
+            response = self.get_response_for_exception(request, e)
         return response
 
-    def get_response_for_exception(self, exc: Exception) -> web.StreamResponse:
+    def get_response_for_exception(self, request: web.Request, exc: Exception) -> web.StreamResponse:
         """
         Create the 500 response for an unhandled exception from the handler.
+
+        Override this to customize the error response - the request
+        parameter allows e.g. content negotiation (JSON for API paths).
         """
         response = web.Response(status=500, text="500 Internal Server Error\n")
         response.force_close()
