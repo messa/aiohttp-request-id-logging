@@ -37,16 +37,13 @@ When you start to use this library in your aiohttp web application, this is how 
 Installation
 ------------
 
+The library is available on PyPI:
+[aiohttp-request-id-logging](https://pypi.org/project/aiohttp-request-id-logging/)
+
 ```shell
-$ uv add https://github.com/messa/aiohttp-request-id-logging/archive/v1.0.0.zip
+$ uv add aiohttp-request-id-logging
 # or
-$ python3 -m pip install https://github.com/messa/aiohttp-request-id-logging/archive/v1.0.0.zip
-```
-
-Or add this line to `requirements.txt`:
-
-```
-aiohttp-request-id-logging @ https://github.com/messa/aiohttp-request-id-logging/archive/v1.0.0.zip
+$ python3 -m pip install aiohttp-request-id-logging
 ```
 
 
