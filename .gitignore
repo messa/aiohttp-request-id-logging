@@ -109,3 +109,6 @@ venv.bak/
 # IDE
 .vscode
 .*.swp
+
+# Claude Code
+.claude/worktrees/
