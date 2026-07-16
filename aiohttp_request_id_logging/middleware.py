@@ -1,8 +1,12 @@
 from aiohttp import web
+from aiohttp.typedefs import Handler
 from aiohttp.web_exceptions import HTTPException
 from asyncio import CancelledError
-from contextlib import ExitStack
+from collections.abc import Callable
+from contextlib import AbstractContextManager, ExitStack
+from contextvars import ContextVar
 from logging import getLogger
+from typing import Any
 import warnings
 
 from . import random_request_id_factory, REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY, request_id, noop
@@ -49,21 +53,21 @@ class RequestIdMiddleware:
     __middleware_version__ = 1  # aiohttp 3 needs this; this is what @web.middleware is setting
 
     # Default values - can be overriden when subclassing
-    request_id_factory = staticmethod(random_request_id_factory)
-    request_id_header_name = "X-Request-Id"
-    log_function_name = True
+    request_id_factory: Callable[[], str] = staticmethod(random_request_id_factory)
+    request_id_header_name: str = "X-Request-Id"
+    log_function_name: bool = True
     request_id_key = REQUEST_ID_KEY
-    fallback_request_id_key = FALLBACK_REQUEST_ID_KEY
-    request_id_cv = request_id
+    fallback_request_id_key: str | None = FALLBACK_REQUEST_ID_KEY
+    request_id_cv: ContextVar[str] = request_id
 
     def __init__(
         self,
         *,
-        request_id_factory=None,
-        log_request_start=None,
-        log_function_name: bool = None,
-        add_response_request_id_header=None,
-        request_id_header_name: str = None,
+        request_id_factory: Callable[[], str] | None = None,
+        log_request_start: Callable[[web.Request, Handler], None] | None = None,
+        log_function_name: bool | None = None,
+        add_response_request_id_header: Callable[[web.StreamResponse, str], None] | None = None,
+        request_id_header_name: str | None = None,
         no_fallback_request_id_key: bool = False,
     ):
         # Set self.request_id_factory
@@ -96,7 +100,7 @@ class RequestIdMiddleware:
 
         self.sentry_make_scope = self.resolve_sentry_make_scope()
 
-    async def __call__(self, request, handler):
+    async def __call__(self, request: web.Request, handler: Handler) -> web.StreamResponse:
         """
         The middleware entrypoint - process one request.
 
@@ -115,7 +119,7 @@ class RequestIdMiddleware:
             await self.after_request(request, handler, response, req_id, stack)
             return response
 
-    async def before_request(self, request, handler, req_id, stack):
+    async def before_request(self, request: web.Request, handler: Handler, req_id: str, stack: ExitStack) -> None:
         """
         Called before the handler: set up the Sentry scope, log the request
         start message and store the request id in the request.
@@ -129,7 +133,9 @@ class RequestIdMiddleware:
         self.log_request_start(request, handler)
         self.set_request_keys(request, req_id)
 
-    async def call_handler(self, request, handler, req_id, stack):
+    async def call_handler(
+        self, request: web.Request, handler: Handler, req_id: str, stack: ExitStack,
+    ) -> web.StreamResponse:
         """
         Call handler and return response.
 
@@ -151,7 +157,7 @@ class RequestIdMiddleware:
             response = self.get_response_for_exception(e)
         return response
 
-    def get_response_for_exception(self, exc):
+    def get_response_for_exception(self, exc: Exception) -> web.StreamResponse:
         """
         Create the 500 response for an unhandled exception from the handler.
         """
@@ -159,14 +165,16 @@ class RequestIdMiddleware:
         response.force_close()
         return response
 
-    async def after_request(self, request, handler, response, req_id, stack):
+    async def after_request(
+        self, request: web.Request, handler: Handler, response: web.StreamResponse, req_id: str, stack: ExitStack,
+    ) -> None:
         """
         Called after the handler returns (or its exception is converted
         to a response). Adds the request id response header.
         """
         self.add_response_request_id_header(response, req_id)
 
-    def log_request_start(self, request, handler):
+    def log_request_start(self, request: web.Request, handler: Handler) -> None:
         """
         Log the "Processing GET / (...)" message at the start of the request.
         """
@@ -175,7 +183,7 @@ class RequestIdMiddleware:
         else:
             logger.info('Processing %s %s', request.method, request.path)
 
-    def set_request_keys(self, request, req_id):
+    def set_request_keys(self, request: web.Request, req_id: str) -> None:
         """
         Set request["request_id"] - both str and AppKey keys
         """
@@ -193,7 +201,7 @@ class RequestIdMiddleware:
                 request[self.fallback_request_id_key] = req_id
 
     @staticmethod
-    def resolve_sentry_make_scope():
+    def resolve_sentry_make_scope() -> Callable[[], AbstractContextManager[Any]] | None:
         """
         Find the function for creating a new Sentry scope, or return None
         if sentry_sdk is not installed (or provides no such function).
@@ -224,7 +232,7 @@ class RequestIdMiddleware:
             )
             return None
 
-    def setup_sentry_scope(self, req_id, stack):
+    def setup_sentry_scope(self, req_id: str, stack: ExitStack) -> None:
         """
         Create a new Sentry scope (entered into the given ExitStack)
         and add the request_id tag to it.
@@ -235,7 +243,7 @@ class RequestIdMiddleware:
             scope = stack.enter_context(self.sentry_make_scope())
             scope.set_tag('request_id', req_id)
 
-    def add_response_request_id_header(self, response, req_id):
+    def add_response_request_id_header(self, response: web.StreamResponse, req_id: str) -> None:
         """
         Add X-Request-Id to the response headers
         """
@@ -246,7 +254,7 @@ class RequestIdMiddleware:
             logger.debug("Could not set response.headers[%r]: %r", self.request_id_header_name, e)
 
     @staticmethod
-    def get_function_name(f):
+    def get_function_name(f: Callable[..., Any]) -> str:
         """
         Return a human-readable handler name for the request start message.
         """
@@ -256,7 +264,12 @@ class RequestIdMiddleware:
             return str(f)
 
 
-def request_id_middleware(*, request_id_factory=None, log_function_name=True, log_request_start=True):
+def request_id_middleware(
+    *,
+    request_id_factory: Callable[[], str] | None = None,
+    log_function_name: bool = True,
+    log_request_start: bool = True,
+) -> RequestIdMiddleware:
     """
     Backward compatibility function for creating a RequestIdMiddleware instance.
 

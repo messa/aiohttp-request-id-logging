@@ -6,7 +6,7 @@ class RequestIdKeyAlreadySetError (Exception):
     or that something else also sets the request id in the request.
     '''
 
-    def __init__(self, existing_request_id):
+    def __init__(self, existing_request_id: str):
         super().__init__(
             f'The request already contains request id {existing_request_id!r} - '
             'request_id_middleware is most likely applied twice, '

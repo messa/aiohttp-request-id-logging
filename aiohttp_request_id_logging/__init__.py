@@ -35,6 +35,7 @@ from aiohttp.web_log import AccessLogger as _AccessLogger
 from contextvars import ContextVar
 import logging
 from secrets import token_urlsafe
+from typing import Any
 
 try:
     import sentry_sdk
@@ -45,7 +46,10 @@ from .errors import RequestIdKeyAlreadySetError
 
 
 # ContextVar that contains given request tracing id
-request_id = ContextVar('request_id')
+request_id: ContextVar[str] = ContextVar('request_id')
+
+REQUEST_ID_KEY: 'web.RequestKey[str] | str'
+FALLBACK_REQUEST_ID_KEY: str | None
 
 try:
     # key for storing the request id in the request; aiohttp recommends
@@ -60,7 +64,7 @@ except AttributeError:
 logger = logging.getLogger(__name__)
 
 
-def setup_logging_request_id_prefix(prefix_format="[req:{request_id}] "):
+def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") -> None:
     '''
     Wrap logging record factory so that every log record gets two extra attributes:
 
@@ -101,7 +105,7 @@ class RequestIdContextAccessLogger (_AccessLogger):
     Usage: run_app(app, access_log_class=RequestIdContextAccessLogger)
     '''
 
-    def log(self, request, response, time):
+    def log(self, request: web.BaseRequest, response: web.StreamResponse, time: float) -> None:
         try:
             request_id_value = request[REQUEST_ID_KEY]
         except KeyError:
@@ -118,7 +122,7 @@ class RequestIdContextAccessLogger (_AccessLogger):
             request_id.reset(token)
 
 
-def random_request_id_factory(length=7):
+def random_request_id_factory(length: int = 7) -> str:
     '''
     Generate a random request id - a URL-safe string of the given length.
 
@@ -146,14 +150,14 @@ class SequentialRequestIdFactory:
     use the default random_request_id_factory instead.
     '''
 
-    prefix_length = 4
+    prefix_length: int = 4
 
     def __init__(self):
-        self._pid = None
-        self._prefix = None
-        self._next_value = None
+        self._pid: int | None = None
+        self._prefix: str | None = None
+        self._next_value: int | None = None
 
-    def __call__(self):
+    def __call__(self) -> str:
         pid = getpid()
         if pid != self._pid:
             self._prefix = self._generate_prefix()
@@ -164,7 +168,7 @@ class SequentialRequestIdFactory:
         return f'{self._prefix}{value:04}'
 
     @classmethod
-    def _generate_prefix(cls):
+    def _generate_prefix(cls) -> str:
         while True:
             prefix = token_urlsafe(cls.prefix_length)[:cls.prefix_length]
             if '_' in prefix or '-' in prefix:
@@ -181,7 +185,7 @@ class SequentialRequestIdFactory:
 sequential_request_id_factory = SequentialRequestIdFactory()
 
 
-def noop(*args, **kwargs):
+def noop(*args: Any, **kwargs: Any) -> None:
     """
     Pass this function as add_response_request_id_header or log_request_start to disable the default behavior.
     """
