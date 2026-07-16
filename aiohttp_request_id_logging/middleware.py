@@ -4,12 +4,11 @@ from aiohttp.web_exceptions import HTTPException
 from asyncio import CancelledError
 from collections.abc import Callable
 from contextlib import AbstractContextManager, ExitStack
-from contextvars import ContextVar
 from logging import getLogger
 from typing import Any
 import warnings
 
-from .context import REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY, request_id
+from .context import REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY, request_id as request_id_cv
 from .errors import RequestIdKeyAlreadySetError
 from .request_id_factories import random_request_id_factory
 
@@ -54,8 +53,7 @@ class RequestIdMiddleware:
       id; default: "X-Request-Id"
     - no_fallback_request_id_key: if True, store the request id only under
       REQUEST_ID_KEY and not under the backward compatibility plain string
-      key request['request_id'] (sets the fallback_request_id_key attribute
-      to None); default: False
+      key request['request_id']; default: False
 
     The behavior can also be customized by subclassing - overriding the class
     attributes (request_id_header_name, log_function_name) or the methods:
@@ -82,9 +80,6 @@ class RequestIdMiddleware:
     # (plain values only - a function here would be bound as a method)
     request_id_header_name: str = "X-Request-Id"
     log_function_name: bool = True
-    request_id_key = REQUEST_ID_KEY
-    fallback_request_id_key: str | None = FALLBACK_REQUEST_ID_KEY
-    request_id_cv: ContextVar[str] = request_id
 
     def __init__(
         self,
@@ -134,8 +129,7 @@ class RequestIdMiddleware:
         if not isinstance(self.request_id_header_name, str):
             raise TypeError("request_id_header_name must be a str")
 
-        if no_fallback_request_id_key:
-            self.fallback_request_id_key = None
+        self._fallback_request_id_key = None if no_fallback_request_id_key else FALLBACK_REQUEST_ID_KEY
 
         self.sentry_make_scope = self.resolve_sentry_make_scope()
 
@@ -156,8 +150,8 @@ class RequestIdMiddleware:
             req_id = self.request_id_factory()
         with ExitStack() as stack:
             # Set request id context variable as a first thing
-            token = self.request_id_cv.set(req_id)
-            stack.callback(lambda: self.request_id_cv.reset(token))
+            token = request_id_cv.set(req_id)
+            stack.callback(lambda: request_id_cv.reset(token))
 
             await self.before_request(request, handler, req_id, stack)
             response = await self.call_handler(request, handler, req_id, stack)
@@ -270,18 +264,17 @@ class RequestIdMiddleware:
         unless disabled (no_fallback_request_id_key=True), also under
         the backward compatibility plain string key request['request_id'].
         """
-        if self.request_id_key in request:
-            raise RequestIdKeyAlreadySetError(request[self.request_id_key])
-        request[self.request_id_key] = req_id
+        if REQUEST_ID_KEY in request:
+            raise RequestIdKeyAlreadySetError(request[REQUEST_ID_KEY])
+        request[REQUEST_ID_KEY] = req_id
 
-        if self.fallback_request_id_key is not None:
-            assert self.fallback_request_id_key != self.request_id_key
+        if self._fallback_request_id_key is not None:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", getattr(web, "NotAppKeyWarning", UserWarning))
 
-                if self.fallback_request_id_key in request:
-                    raise RequestIdKeyAlreadySetError(request[self.fallback_request_id_key])
-                request[self.fallback_request_id_key] = req_id
+                if self._fallback_request_id_key in request:
+                    raise RequestIdKeyAlreadySetError(request[self._fallback_request_id_key])
+                request[self._fallback_request_id_key] = req_id
 
     @staticmethod
     def resolve_sentry_make_scope() -> Callable[[], AbstractContextManager[Any]] | None:
