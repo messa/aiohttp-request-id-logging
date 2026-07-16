@@ -20,7 +20,7 @@ try:
     import sentry_sdk
     from sentry_sdk.integrations.aiohttp import AioHttpIntegration
 except ImportError:
-    sentry_sdk = None
+    sentry_sdk = None  # ty: ignore[invalid-assignment]
 
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,

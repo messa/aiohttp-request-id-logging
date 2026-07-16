@@ -1,6 +1,6 @@
 default: check lint
 
-check:
+check: lint typecheck
 	uv run pytest --log-level=DEBUG --tb=short -v tests $(pytest_args)
 
 lint:
@@ -11,4 +11,7 @@ lint-fix:
 	uv run ruff check --fix .
 	uv run ruff format .
 
-.PHONY: default check lint lint-fix
+typecheck:
+	uv run ty check
+
+.PHONY: default check lint lint-fix typecheck

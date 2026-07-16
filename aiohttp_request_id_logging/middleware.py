@@ -88,8 +88,11 @@ class RequestIdMiddleware:
             raise TypeError("request_id_factory must be a callable")
 
         # Set self.log_request_start
+        # (replacing a method with a plain callable stored in an instance
+        # attribute is not expressible in the type system - hence the ignores
+        # here and at the call sites)
         if log_request_start is not None:
-            self.log_request_start = log_request_start
+            self.log_request_start = log_request_start  # ty: ignore[invalid-assignment]
         if not callable(self.log_request_start):
             raise TypeError("log_request_start must be a callable; pass noop to disable the message")
 
@@ -101,7 +104,7 @@ class RequestIdMiddleware:
 
         # Set self.add_response_request_id_header
         if add_response_request_id_header is not None:
-            self.add_response_request_id_header = add_response_request_id_header
+            self.add_response_request_id_header = add_response_request_id_header  # ty: ignore[invalid-assignment]
         if not callable(self.add_response_request_id_header):
             raise TypeError("add_response_request_id_header must be a callable; pass noop to disable the header")
 
@@ -157,7 +160,7 @@ class RequestIdMiddleware:
         # Sentry scope comes first so that the following log messages
         # are captured in it (as breadcrumbs).
         self.setup_sentry_scope(req_id, stack)
-        self.log_request_start(request, handler)
+        self.log_request_start(request, handler)  # ty: ignore[missing-argument, invalid-argument-type]
         self.set_request_keys(request, req_id)
 
     async def call_handler(
@@ -208,7 +211,7 @@ class RequestIdMiddleware:
         Called after the handler returns (or its exception is converted
         to a response). Adds the request id response header.
         """
-        self.add_response_request_id_header(response, req_id)
+        self.add_response_request_id_header(response, req_id)  # ty: ignore[missing-argument, invalid-argument-type]
 
     def log_request_start(self, request: web.Request, handler: Handler) -> None:
         """
@@ -315,7 +318,7 @@ class RequestIdMiddleware:
         Return a human-readable handler name for the request start message.
         """
         try:
-            return f"{f.__module__}:{f.__name__}"
+            return f"{f.__module__}:{f.__name__}"  # ty: ignore[unresolved-attribute]
         except Exception:
             return str(f)
 

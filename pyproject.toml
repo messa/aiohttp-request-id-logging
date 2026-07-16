@@ -23,7 +23,12 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = ["pytest", "ruff"]
+dev = [
+    "pytest",
+    "ruff",
+    "sentry-sdk>=2.66.0",
+    "ty>=0.0.60",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/messa/aiohttp-request-id-logging"

@@ -232,12 +232,14 @@ Development
 -----------
 
 The project uses [uv](https://docs.astral.sh/uv/) for dependency and environment
-management and [Ruff](https://docs.astral.sh/ruff/) for linting and formatting.
+management, [Ruff](https://docs.astral.sh/ruff/) for linting and formatting
+and [ty](https://docs.astral.sh/ty/) for type checking.
 
 ```shell
-$ make check     # run tests (pytest)
-$ make lint      # ruff check + ruff format --check
-$ make lint-fix  # apply ruff fixes and formatting
+$ make check      # ty check + tests (pytest)
+$ make lint       # ruff check + ruff format --check
+$ make lint-fix   # apply ruff fixes and formatting
+$ make typecheck  # ty check
 ```
 
 The Makefile targets use `uv run`, which automatically creates the `.venv`
@@ -307,6 +309,9 @@ Version changelog
   the `test` extra); linting was migrated from flake8 to
   [Ruff](https://docs.astral.sh/ruff/) and the codebase was reformatted
   with `ruff format` (see the new `make lint` and `make lint-fix` targets)
+- Development: added type checking with [ty](https://docs.astral.sh/ty/)
+  (`make typecheck`, also run in CI); `sentry-sdk` was added to the dev
+  dependencies so that the Sentry integration is type checked too
 - Github Actions: lint runs in a separate job; uv is used to install Python
   and the dependencies
 

@@ -40,7 +40,7 @@ from typing import Any
 try:
     import sentry_sdk
 except ImportError:
-    sentry_sdk = None
+    sentry_sdk = None  # ty: ignore[invalid-assignment]
 
 from .errors import RequestIdKeyAlreadySetError
 
@@ -80,7 +80,7 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
     # make sure we are doing this only once
     if getattr(logging, "request_id_log_record_factory_set_up", False):
         return
-    logging.request_id_log_record_factory_set_up = True
+    logging.request_id_log_record_factory_set_up = True  # ty: ignore[unresolved-attribute]
 
     old_factory = logging.getLogRecordFactory()
 
@@ -158,7 +158,7 @@ class SequentialRequestIdFactory:
     def __init__(self):
         self._pid: int | None = None
         self._prefix: str | None = None
-        self._next_value: int | None = None
+        self._next_value: int = 0
 
     def __call__(self) -> str:
         pid = getpid()

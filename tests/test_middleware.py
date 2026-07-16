@@ -163,7 +163,7 @@ def test_add_response_request_id_header_skips_prepared_response():
         headers = {}
 
     response = PreparedResponse()
-    middleware.add_response_request_id_header(response, "abc1234")
+    middleware.add_response_request_id_header(response, "abc1234")  # ty: ignore[missing-argument, invalid-argument-type]
     assert response.headers == {}
 
 
