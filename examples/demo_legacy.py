@@ -1,8 +1,10 @@
 """
 Demonstrates the backward compatible request_id_middleware() usage -
 the wrapper function kept for applications written against the pre-1.0
-API. New code should use the RequestIdMiddleware class directly
-(see demo.py).
+API. The legacy RequestIdContextAccessLogger name (an alias of
+RequestIdAccessLogger) is used here intentionally for the same reason.
+New code should use the RequestIdMiddleware class and the new name
+directly (see demo.py).
 
 Run this file and try:
 

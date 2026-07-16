@@ -53,7 +53,6 @@ Usage
 
 ```python
 from aiohttp.web import Application, Response, RouteTableDef, run_app
-from aiohttp.web_log import AccessLogger
 from aiohttp_request_id_logging import (
     setup_logging_request_id_prefix,
     RequestIdMiddleware,
