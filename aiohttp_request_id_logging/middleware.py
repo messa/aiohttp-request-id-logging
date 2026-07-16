@@ -9,11 +9,19 @@ from logging import getLogger
 from typing import Any
 import warnings
 
-from . import random_request_id_factory, REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY, request_id, noop
+from .context import REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY, request_id
 from .errors import RequestIdKeyAlreadySetError
+from .request_id_factories import random_request_id_factory
 
 
 logger = getLogger(__name__)
+
+
+def noop(*args: Any, **kwargs: Any) -> None:
+    """
+    Pass this function as add_response_request_id_header or log_request_start to disable the default behavior.
+    """
+    pass
 
 
 class RequestIdMiddleware:

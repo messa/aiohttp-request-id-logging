@@ -9,8 +9,3 @@ def test_imported_api():
     # every name declared in __all__ exists
     for name in aiohttp_request_id_logging.__all__:
         assert getattr(aiohttp_request_id_logging, name) is not None
-
-
-def test_generate_request_id(monkeypatch):
-    assert len(aiohttp_request_id_logging.generate_request_id()) == 7
-    assert len(aiohttp_request_id_logging.generate_request_id(9)) == 9
