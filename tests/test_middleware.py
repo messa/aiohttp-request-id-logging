@@ -33,6 +33,21 @@ def test_middleware_sets_request_id():
     assert request_id.get(None) is None
 
 
+def test_middleware_no_fallback_request_id_key():
+    middleware = RequestIdMiddleware(no_fallback_request_id_key=True)
+    request = make_mocked_request('GET', '/')
+    response = run(middleware(request, hello))
+    assert response.status == 200
+    assert request[REQUEST_ID_KEY]
+    if not isinstance(REQUEST_ID_KEY, str):
+        # the plain string fallback key is not set
+        # (on older aiohttp without web.RequestKey the string key
+        # is the primary key, so there is no fallback to disable)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            assert 'request_id' not in request
+
+
 def test_middleware_logs_request_start_by_default(caplog):
     middleware = request_id_middleware()
     request = make_mocked_request('GET', '/')

@@ -206,6 +206,10 @@ __all__ = [
     "setup_logging_request_id_prefix",
     "RequestIdContextAccessLogger",
     "random_request_id_factory",
+    "generate_request_id",
     "sequential_request_id_factory",
+    "SequentialRequestIdFactory",
+    "request_id",
+    "REQUEST_ID_KEY",
     "noop",
 ]
