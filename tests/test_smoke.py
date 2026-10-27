@@ -3,7 +3,7 @@ import aiohttp_request_id_logging
 
 def test_imported_api():
     assert callable(aiohttp_request_id_logging.setup_logging_request_id_prefix)
-    assert aiohttp_request_id_logging.request_id_middleware
+    assert callable(aiohttp_request_id_logging.request_id_middleware)
     assert aiohttp_request_id_logging.RequestIdAccessLogger
     # backward compatibility alias
     assert aiohttp_request_id_logging.RequestIdContextAccessLogger is aiohttp_request_id_logging.RequestIdAccessLogger
