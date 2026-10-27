@@ -1,6 +1,8 @@
 default: check
 
-check: lint typecheck
+check: lint typecheck test
+
+test:
 	uv run pytest --log-level=DEBUG --tb=short -v tests $(pytest_args)
 
 lint:
@@ -13,5 +15,6 @@ lint-fix:
 
 typecheck:
 	uv run ty check
+	uv run mypy
 
-.PHONY: default check lint lint-fix typecheck
+.PHONY: default check test lint lint-fix typecheck

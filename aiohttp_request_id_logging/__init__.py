@@ -33,9 +33,11 @@ Usage:
 __version__ = "1.0.0"
 
 try:
-    import sentry_sdk
+    # "as sentry_sdk" marks the name as explicitly re-exported for type checkers -
+    # middleware.py reads it from here (so that tests can monkeypatch it)
+    import sentry_sdk as sentry_sdk
 except ImportError:
-    sentry_sdk = None
+    sentry_sdk = None  # type: ignore[assignment]
 
 from .context import request_id, REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY
 from .errors import RequestIdKeyAlreadySetError

@@ -41,7 +41,7 @@ class SequentialRequestIdFactory:
 
     prefix_length: int = 4
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._pid: int | None = None
         self._prefix: str | None = None
         self._next_value: int = 0

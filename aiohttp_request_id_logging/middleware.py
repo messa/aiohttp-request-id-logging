@@ -94,7 +94,7 @@ class RequestIdMiddleware:
     ):
         # Set self.request_id_factory
         if request_id_factory is None:
-            self.request_id_factory = random_request_id_factory
+            self.request_id_factory: Callable[[], str] = random_request_id_factory
         elif callable(request_id_factory):
             self.request_id_factory = request_id_factory
         else:

@@ -128,11 +128,11 @@ def run_demo(demo_path):
         cmd_env = {
             **environ,
             "PYTHONDEVMODE": "1",  # Enable printing of warnings, e.g. NotAppKeyWarning
-            "SKIP_SLEEP": "1",  # Make the examples run faster by skipping the demostration sleep() calls
+            "SKIP_SLEEP": "1",  # Make the examples run faster by skipping the demonstration sleep() calls
         }
         with Popen(cmd, stdin=DEVNULL, stdout=PIPE, stderr=PIPE, env=cmd_env) as process:
-            stdout_lines = []
-            stderr_lines = []
+            stdout_lines: list[str] = []
+            stderr_lines: list[str] = []
             stdout_thread = Thread(target=read_output, args=(process.stdout, stdout_lines, "stdout"), daemon=True)
             stderr_thread = Thread(target=read_output, args=(process.stderr, stderr_lines, "stderr"), daemon=True)
             stdout_thread.start()

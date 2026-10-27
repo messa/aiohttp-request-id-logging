@@ -3,6 +3,7 @@ from aiohttp import web
 from aiohttp.test_utils import make_mocked_request, TestClient, TestServer
 from logging import INFO
 from pytest import raises
+from typing import cast
 import warnings
 
 from aiohttp_request_id_logging import (
@@ -276,7 +277,7 @@ def test_add_response_request_id_header_skips_prepared_response():
         headers = {}
 
     response = PreparedResponse()
-    middleware.add_response_request_id_header(response, "abc1234")  # ty: ignore[invalid-argument-type]
+    middleware.add_response_request_id_header(cast(web.StreamResponse, response), "abc1234")
     assert response.headers == {}
 
 

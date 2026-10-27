@@ -48,7 +48,7 @@ def test_middleware_works_without_sentry_sdk(monkeypatch):
 
 def test_sentry_scope_is_created_with_request_id_tag(monkeypatch):
     # fake sentry_sdk 2.x provides isolation_scope
-    created_scopes = []
+    created_scopes: list[FakeScope] = []
     fake_sentry = SimpleNamespace(isolation_scope=make_fake_scope_cm(created_scopes))
     monkeypatch.setattr(aiohttp_request_id_logging, "sentry_sdk", fake_sentry)
     middleware = RequestIdMiddleware()
@@ -70,7 +70,7 @@ def test_sentry_scope_is_created_with_request_id_tag(monkeypatch):
 
 def test_sentry_push_scope_is_used_as_fallback(monkeypatch):
     # fake sentry_sdk 1.x provides only push_scope
-    created_scopes = []
+    created_scopes: list[FakeScope] = []
     fake_sentry = SimpleNamespace(push_scope=make_fake_scope_cm(created_scopes))
     monkeypatch.setattr(aiohttp_request_id_logging, "sentry_sdk", fake_sentry)
     middleware = RequestIdMiddleware()

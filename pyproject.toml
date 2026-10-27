@@ -24,11 +24,12 @@ classifiers = [
   "Typing :: Typed",
 ]
 dependencies = [
-  "aiohttp",
+  "aiohttp>=3.8",
 ]
 
 [dependency-groups]
 dev = [
+    "mypy>=2.4.0",
     "pytest",
     "ruff",
     "sentry-sdk>=2.73.0",
@@ -47,6 +48,33 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.package-data]
 aiohttp_request_id_logging = ["py.typed"]
+
+[tool.mypy]
+# mypy is run in addition to ty: users of this library mostly type check
+# their projects with mypy, so the published types must pass it too
+files = ["aiohttp_request_id_logging", "tests", "examples"]
+check_untyped_defs = true
+warn_redundant_casts = true
+
+[[tool.mypy.overrides]]
+# The library itself is checked strictly, tests and examples are not
+# (they are mostly unannotated). These are the flags enabled by --strict -
+# strict = true cannot be used here, it would apply to all modules.
+module = "aiohttp_request_id_logging.*"
+disallow_any_generics = true
+disallow_subclassing_any = true
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+warn_unused_ignores = true
+warn_return_any = true
+implicit_reexport = false
+strict_equality = true
+extra_checks = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 150

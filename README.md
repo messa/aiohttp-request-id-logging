@@ -105,7 +105,7 @@ This library helps you to add request (correlation) id to the log messages in a 
 
    - so you should modify your log format, for example `logging.basicConfig(format=... %(levelname)5s: %(requestIdPrefix)s%(message)s')`
 
-3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would be already resetted. So **`RequestIdAccessLogger`** is provided that adds the request_id to the access log message.
+3. Because the aiohttp access logging happens out of the middleware scope, the request id ContextVar would already be reset. So **`RequestIdAccessLogger`** is provided that adds the request_id to the access log message.
 
 4. Unhandled exceptions ("500 errors") are logged and converted to a 500 response directly by **`RequestIdMiddleware`** – if they were left to the standard aiohttp error handling, the traceback would be logged outside of the middleware scope, without the request id (see the [Reference](#requestidmiddleware) for details).
 
@@ -271,13 +271,16 @@ Development
 
 The project uses [uv](https://docs.astral.sh/uv/) for dependency and environment
 management, [Ruff](https://docs.astral.sh/ruff/) for linting and formatting
-and [ty](https://docs.astral.sh/ty/) for type checking.
+and [ty](https://docs.astral.sh/ty/) with [mypy](https://mypy-lang.org/) for type checking
+(mypy runs in strict mode for the library code, because projects using this library
+mostly type check with mypy).
 
 ```shell
-$ make check      # lint + ty check + tests (pytest)
+$ make check      # lint + typecheck + test
 $ make lint       # ruff check + ruff format --check
 $ make lint-fix   # apply ruff fixes and formatting
-$ make typecheck  # ty check
+$ make typecheck  # ty check + mypy
+$ make test       # only the tests (pytest)
 ```
 
 The Makefile targets use `uv run`, which automatically creates the `.venv`
@@ -292,6 +295,14 @@ Version changelog
 
 - Added support for Python 3.15
 - Breaking: dropped support for Python 3.10 (`requires-python = ">=3.11"`)
+- Packaging: declared the minimum aiohttp version (`aiohttp>=3.8`; the oldest
+  version tested in CI is 3.8.6)
+- Type hints: fixed issues reported by `mypy --strict` – `SequentialRequestIdFactory()`
+  is no longer an untyped call and `RequestIdMiddleware.request_id_factory`
+  is typed as `Callable[[], str]`
+- Development: added type checking with [mypy](https://mypy-lang.org/) in addition
+  to ty (strict for the library code; part of `make typecheck`, also run in CI);
+  added a `make test` target that runs only the tests
 - Development: updated dependencies (`uv.lock`) – Ruff 0.17 now also checks
   the formatting of Python code blocks in `README.md`
 - Github Actions: added Python 3.15, removed Python 3.10, updated `astral-sh/setup-uv` to v10

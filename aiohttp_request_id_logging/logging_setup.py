@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from aiohttp import web
 from aiohttp.web_log import AccessLogger as _AccessLogger
@@ -24,11 +25,11 @@ def setup_logging_request_id_prefix(prefix_format: str = "[req:{request_id}] ") 
     # make sure we are doing this only once
     if getattr(logging, "request_id_log_record_factory_set_up", False):
         return
-    logging.request_id_log_record_factory_set_up = True  # ty: ignore[unresolved-attribute]
+    setattr(logging, "request_id_log_record_factory_set_up", True)
 
     old_factory = logging.getLogRecordFactory()
 
-    def new_factory(*args, **kwargs):
+    def new_factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
         record = old_factory(*args, **kwargs)
         req_id = request_id.get()
         record.request_id = req_id
