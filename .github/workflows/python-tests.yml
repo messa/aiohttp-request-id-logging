@@ -59,6 +59,10 @@ jobs:
           aiohttp-version: '3.8.6'
           # aiohttp/_websocket.c:1118:63: error: ‘PyDictObject’ has no member named ‘ma_version_tag’
 
+        - python-version: '3.15'
+          aiohttp-version: '3.9.5'
+          # Many DeprecationWarnings
+
     steps:
     - uses: actions/checkout@v7
 
