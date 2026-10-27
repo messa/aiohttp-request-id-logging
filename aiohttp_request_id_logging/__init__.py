@@ -35,7 +35,7 @@ __version__ = "1.0.0"
 try:
     import sentry_sdk
 except ImportError:
-    sentry_sdk = None  # ty: ignore[invalid-assignment]
+    sentry_sdk = None
 
 from .context import request_id, REQUEST_ID_KEY, FALLBACK_REQUEST_ID_KEY
 from .errors import RequestIdKeyAlreadySetError

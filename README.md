@@ -61,13 +61,16 @@ from aiohttp_request_id_logging import (
 
 routes = RouteTableDef()
 
-@routes.get('/')
+
+@routes.get("/")
 async def hello(request):
     return Response(text="Hello, world!\n")
 
+
 basicConfig(
     level=DEBUG,
-    format='%(asctime)s [%(threadName)s] %(name)-37s %(levelname)5s: %(requestIdPrefix)s%(message)s')
+    format="%(asctime)s [%(threadName)s] %(name)-37s %(levelname)5s: %(requestIdPrefix)s%(message)s",
+)
 
 setup_logging_request_id_prefix()
 
@@ -284,6 +287,14 @@ on the first run.
 
 Version changelog
 -----------------
+
+### Unreleased
+
+- Added support for Python 3.15
+- Breaking: dropped support for Python 3.10 (`requires-python = ">=3.11"`)
+- Development: updated dependencies (`uv.lock`) – Ruff 0.17 now also checks
+  the formatting of Python code blocks in `README.md`
+- Github Actions: added Python 3.15, removed Python 3.10, updated `astral-sh/setup-uv` to v10
 
 ### 1.0.0 (2026-07-16)
 

@@ -195,6 +195,8 @@ def test_demo_hello_world(run_demo, demo_spec):
         r"DeprecationWarning: Setting custom Request\._transport_sockname attribute is discouraged",
         # aiohttp web_urldispatcher.py on Python 3.14:
         r"DeprecationWarning: 'asyncio\.iscoroutinefunction' is deprecated",
+        # aiohttp < 3.10 payload.py on Python 3.15:
+        r"DeprecationWarning: 'typing\.ByteString' and 'collections\.abc\.ByteString' are deprecated",
         # asyncio debug mode (PYTHONDEVMODE=1) slow task/callback warning on a slow machine (CI):
         r"asyncio\s+WARNING: Executing <(Task|Handle).* took [\d.]+ seconds",
     ]
