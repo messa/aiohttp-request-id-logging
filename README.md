@@ -291,6 +291,10 @@ on the first run.
 Version changelog
 -----------------
 
+### Unreleased
+
+- Nothing yet :)
+
 ### 1.0.1 (2026-10-27)
 
 - Added support for Python 3.15
