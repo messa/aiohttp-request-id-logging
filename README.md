@@ -291,7 +291,7 @@ on the first run.
 Version changelog
 -----------------
 
-### Unreleased
+### 1.0.1 (2026-10-27)
 
 - Added support for Python 3.15
 - Breaking: dropped support for Python 3.10 (`requires-python = ">=3.11"`)

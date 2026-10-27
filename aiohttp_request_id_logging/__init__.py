@@ -30,7 +30,7 @@ Usage:
 
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 try:
     # "as sentry_sdk" marks the name as explicitly re-exported for type checkers -
