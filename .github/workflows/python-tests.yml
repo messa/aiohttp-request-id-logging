@@ -35,7 +35,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
         # 'latest' = whatever is currently on PyPI, to catch regressions
         # with new aiohttp releases early
         # aiohttp 3.7.4 is not in the matrix: it does not run on any
@@ -52,6 +52,10 @@ jobs:
           # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
 
         - python-version: '3.14'
+          aiohttp-version: '3.8.6'
+          # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
+
+        - python-version: '3.15'
           aiohttp-version: '3.8.6'
           # aiohttp/_websocket.c:3744:45: error: ‘PyLongObject’ {aka ‘struct _longobject’} has no member named ‘ob_digit’
 
